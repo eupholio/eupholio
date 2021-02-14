@@ -1,0 +1,11 @@
+output   = "models"
+wipe     = true
+no-tests = true
+
+[mysql]
+  dbname  = "eupholio"
+  host    = "localhost"
+  port    = 3306
+  user    = "eupholio"
+  pass    = "eupholio"
+  sslmode = "false"

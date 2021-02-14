@@ -1,0 +1,7 @@
+id,time,operation,amount,trading_currency,price,original_currency,fee,comment
+AO123450001,2017-01-01 00:00:00 +0900,Received,100000.0,JPY,,,,""
+AO123450002,2017-01-02 00:00:00 +0900,Received,200000.0,JPY,,,,""
+AO123450003,2017-01-02 09:00:00 +0900,Received,300000.0,JPY,,,,""
+AO123450004,2017-12-29 00:00:00 +0900,Limit Order,-165131.4125,JPY,,,,"Rate: 1651314.125000, Pair: btc_jpy"
+AO123450005,2017-12-29 00:01:00 +0900,Completed trading contracts,0.09605703,BTC,,,,"Rate: 1651314.125000, Pair: btc_jpy"
+AO123450006,2017-12-30 00:00:00 +0900,Bank Withdrawal,-10000.0,JPY,,,-400.0,""

@@ -1,0 +1,23 @@
+version: "3"
+services:
+  metabase:
+    container_name: metabase
+    image: metabase/metabase
+    ports:
+      - "3000:3000"
+    links:
+      - mysql
+    volumes:
+      - ./data/metabase:/mnt/data
+  mysql:
+    container_name: mysql
+    image: mysql:5.7.22
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: eupholio
+      MYSQL_USER: eupholio
+      MYSQL_PASSWORD: eupholio
+      MYSQL_ROOT_PASSWORD: eupholio
+    volumes:
+      - ./data/mysql:/var/lib/mysql
