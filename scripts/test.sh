@@ -20,10 +20,7 @@ ${ETL} import bittrex --filetype withdraw testdata/bittrex/BittrexWithdraw.csv
 ${ETL} import poloniex testdata/poloniex/*.csv
 ${ETL} import cryptact --filetype custom testdata/cryptact/Custom.csv
 ${ETL} translate
-
-for i in 2017 2018 2019 2020 2021; do
-  ${ETL} calculate --year $i
-done
+${ETL} calculate
 
 for i in 2017 2018 2019 2020 2021; do
   ${QUERY} transaction --year $i --format ${FORMAT} > transaction$i.csv;
