@@ -5,6 +5,8 @@ downloaded from multiple exchanges and calculate the total amount of your portfo
 
 This software is under development and not tested well so you can't use it for practical use. 
 
+[![Test](https://github.com/eupholio/eupholio/actions/workflows/test.yml/badge.svg)](https://github.com/eupholio/eupholio/actions/workflows/test.yml)
+
 ## Features
 
 The main feature of this software is simple portfolio tracking. It just accumlates opened and 
