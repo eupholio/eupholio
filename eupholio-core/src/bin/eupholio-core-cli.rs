@@ -1,5 +1,6 @@
 use std::{collections::HashMap, io::{self, Read}};
 
+use clap::{Parser, Subcommand};
 use eupholio_core::{
     calculate, calculate_total_average_with_carry,
     config::{Config, CostMethod, RoundingPolicy},
@@ -15,6 +16,21 @@ struct Input {
     events: Vec<Event>,
     #[serde(default)]
     carry_in: HashMap<String, CarryIn>,
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "eupholio-core-cli", version, about = "Eupholio core calculator CLI")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    /// Calculate report from JSON provided via stdin
+    Calc,
+    /// Show CLI version
+    Version,
 }
 
 fn parse_method(s: &str) -> Result<CostMethod, String> {
@@ -57,7 +73,7 @@ fn run(input: Input) -> Result<Report, io::Error> {
     Ok(report)
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn run_calc() -> Result<(), Box<dyn std::error::Error>> {
     let mut raw = String::new();
     io::stdin().read_to_string(&mut raw)?;
 
@@ -66,4 +82,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
+
+    match cli.command.unwrap_or(Commands::Calc) {
+        Commands::Calc => run_calc(),
+        Commands::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+    }
 }

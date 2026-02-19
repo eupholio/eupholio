@@ -5,10 +5,19 @@
 
 標準入力JSONを読み、計算結果 `Report` JSON を標準出力へ返します。
 
+## サブコマンド
+
+- `calc` : JSON入力を計算してReportを出力
+- `version` : CLIバージョン表示
+
+`calc` は互換のため、サブコマンド省略時のデフォルトでも実行されます。
+
 ## 実行
 
 ```bash
 cd eupholio-core
+cat input.json | cargo run --quiet --bin eupholio-core-cli -- calc
+# 互換: calc 省略でも可
 cat input.json | cargo run --quiet --bin eupholio-core-cli
 ```
 
