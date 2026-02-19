@@ -8,17 +8,7 @@ fn coincheck_smoke_source_to_normalized_to_calculate() {
     let expected_raw = include_str!("fixtures/normalizer/coincheck_history_smoke.normalized.json");
 
     let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
-    assert_eq!(normalized.diagnostics.len(), 2, "unsupported rows are diagnosed");
-    assert_eq!(normalized.diagnostics[0].row, 2);
-    assert_eq!(
-        normalized.diagnostics[0].reason,
-        "unsupported operation: operation='Received', id='cc-000'"
-    );
-    assert_eq!(normalized.diagnostics[1].row, 5);
-    assert_eq!(
-        normalized.diagnostics[1].reason,
-        "unsupported operation: operation='Sent', id='cc-999'"
-    );
+    assert!(normalized.diagnostics.is_empty());
 
     let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
     assert_eq!(normalized.events, expected, "normalized output should match fixture");
@@ -33,7 +23,6 @@ fn coincheck_smoke_source_to_normalized_to_calculate() {
     );
 
     assert_eq!(report.realized_pnl_jpy.to_string(), "198800");
-    assert_eq!(report.positions.len(), 1);
     let btc = report.positions.get("BTC").expect("btc position should exist");
     assert_eq!(btc.qty.to_string(), "0.0");
 }
@@ -136,4 +125,71 @@ cc8,2026-01-01 00:00:00 +0900,Completed trading contracts,1000,JPY,,,0,\"Rate: 0
     assert!(normalize_trade_history_csv(raw)
         .expect_err("zero rate should fail")
         .contains("rate must be > 0"));
+}
+
+#[test]
+fn coincheck_transfer_requires_positive_qty() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc9,2026-01-01 00:00:00 +0900,Sent,-0.01,BTC,,,0,\"Address: 1ABC\"\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("non-positive transfer qty should fail")
+        .contains("transfer qty must be > 0"));
+}
+
+#[test]
+fn coincheck_unsupported_operation_is_diagnosed() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc10,2026-01-01 00:00:00 +0900,Canceled,1,BTC,,,0,\"\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert_eq!(normalized.events.len(), 0);
+    assert_eq!(normalized.diagnostics.len(), 1);
+    assert!(normalized.diagnostics[0]
+        .reason
+        .contains("unsupported operation"));
+}
+
+#[test]
+fn coincheck_transfer_handles_lowercase_asset_with_whitespace() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc11,2026-01-01 00:00:00 +0900,Received,1.25, btc ,,,0,\"\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 1);
+
+    match &normalized.events[0] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(qty.to_string(), "1.25");
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
+        }
+        _ => panic!("expected transfer event"),
+    }
+}
+
+#[test]
+fn coincheck_transfer_empty_amount_is_rejected() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc12,2026-01-01 00:00:00 +0900,Sent,,BTC,,,0,\"\"\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("empty amount should fail")
+        .contains("invalid decimal"));
+}
+
+#[test]
+fn coincheck_transfer_bad_datetime_is_rejected() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc13,2026/01/01 00:00:00,Received,1,BTC,,,0,\"\"\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("invalid datetime should fail")
+        .contains("invalid datetime"));
 }

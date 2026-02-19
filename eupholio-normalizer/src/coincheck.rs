@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use csv::StringRecord;
-use eupholio_core::event::Event;
+use eupholio_core::event::{Event, TransferDirection};
 use regex::Regex;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -8,6 +8,8 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 
 const OP_COMPLETED_TRADING_CONTRACTS: &str = "Completed trading contracts";
+const OP_RECEIVED: &str = "Received";
+const OP_SENT: &str = "Sent";
 const TIME_LAYOUT: &str = "%Y-%m-%d %H:%M:%S %z";
 const MAX_DIAGNOSTIC_VALUE_LEN: usize = 64;
 
@@ -68,6 +70,38 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
     let id = get(index, row, "id")?;
     let operation = get(index, row, "operation")?;
 
+    let amount = parse_decimal(get(index, row, "amount")?)?;
+    let trading_currency = get(index, row, "trading_currency")?.to_ascii_uppercase();
+    let ts = parse_datetime(get(index, row, "time")?)?;
+
+    if operation == OP_RECEIVED || operation == OP_SENT {
+        if amount <= Decimal::ZERO {
+            return Err(format!("transfer qty must be > 0, got {}", amount));
+        }
+
+        let direction = if operation == OP_RECEIVED {
+            TransferDirection::In
+        } else {
+            TransferDirection::Out
+        };
+
+        return Ok(RowOutcome::Event(Event::Transfer {
+            id: format!(
+                "{}:{}",
+                id,
+                if operation == OP_RECEIVED {
+                    "transfer_in"
+                } else {
+                    "transfer_out"
+                }
+            ),
+            asset: trading_currency,
+            qty: amount,
+            direction,
+            ts,
+        }));
+    }
+
     if operation != OP_COMPLETED_TRADING_CONTRACTS {
         return Ok(RowOutcome::Unsupported(format!(
             "unsupported operation: operation='{}', id='{}'",
@@ -76,11 +110,7 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
         )));
     }
 
-    let amount = parse_decimal(get(index, row, "amount")?)?;
-    let trading_currency = get(index, row, "trading_currency")?.to_ascii_uppercase();
     let fee = parse_optional_decimal(get(index, row, "fee")?)?.unwrap_or(Decimal::ZERO);
-    let ts = parse_datetime(get(index, row, "time")?)?;
-
     let (rate, quote, base) = parse_rate_pair(get(index, row, "comment")?)?;
     if base != "JPY" {
         return Err(format!(

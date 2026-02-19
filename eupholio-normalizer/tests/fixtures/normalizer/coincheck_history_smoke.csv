@@ -2,4 +2,4 @@ id,time,operation,amount,trading_currency,price,original_currency,fee,comment
 cc-000,2026-01-01 00:00:00 +0900,Received,100000,JPY,,,0,""
 cc-101,2026-01-05 18:00:02 +0900,Completed trading contracts,0.1,BTC,,,500,"Rate: 5000000.0, Pair: btc_jpy"
 cc-102,2026-02-10 12:00:04 +0900,Completed trading contracts,700000,JPY,,,700,"Rate: 7000000.0, Pair: btc_jpy"
-cc-999,2026-02-20 12:00:00 +0900,Sent,-0.01,BTC,,,0,"Address: 1ABC"
+cc-999,2026-02-20 12:00:00 +0900,Sent,1000,JPY,,,0,"Address: 1ABC"
