@@ -17,7 +17,7 @@ This note locks current `per_year` behavior in `eupholio-core` to avoid interpre
    - `carry_out_cost` is computed from the rounded fields and then rounded by JPY rule:
      - `carry_out_cost = round_jpy(rounded_carry_out_qty * rounded_average_cost_per_unit)`
 4. Invariant target in yearly summary:
-   - `carry_out_cost` must remain coherent with rounded `carry_out_qty` and `average_cost_per_unit`.
+   - `carry_out_cost == round_jpy(carry_out_qty * average_cost_per_unit)` (using `rounding.currency["JPY"]`, defaulting to scale=0 HalfUp).
 
 ## Related paths
 
