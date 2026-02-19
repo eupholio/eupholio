@@ -10,6 +10,7 @@ Implemented:
 - CLI subcommands: `calc`, `validate`, `version`
 - External rounding override input (`rounding`)
 - Go vs Rust parity scripts
+- Year mismatch handling: events whose `event.ts` year differs from `tax_year` are warned (`YearMismatch` / `EVENT_YEAR_MISMATCH`) and excluded from calculation
 
 Not yet fully implemented:
 - exchange-specific normalizers

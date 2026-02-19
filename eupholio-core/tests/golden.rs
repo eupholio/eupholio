@@ -5,7 +5,7 @@ use eupholio_core::{
     calculate, calculate_total_average_with_carry,
     config::{Config, CostMethod, RoundingPolicy, RoundingTiming},
     event::{Event, TransferDirection},
-    report::CarryIn,
+    report::{CarryIn, Warning},
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -322,4 +322,67 @@ fn case6_per_event_fixture_total_average_differs_from_report_only() {
 #[test]
 fn case7_per_year_fixture_total_average_differs_from_report_only() {
     assert_per_year_fixture("fixtures/per_year_total_difference.json");
+}
+
+#[test]
+fn case8_year_mismatch_is_excluded_consistently_across_methods() {
+    let events = vec![
+        Event::Acquire {
+            id: "a_mismatch".into(),
+            asset: "BTC".into(),
+            qty: dec!(1),
+            jpy_cost: dec!(100),
+            ts: ts(2025, 12, 31),
+        },
+        Event::Acquire {
+            id: "a1".into(),
+            asset: "BTC".into(),
+            qty: dec!(1),
+            jpy_cost: dec!(120),
+            ts: ts(2026, 1, 1),
+        },
+        Event::Dispose {
+            id: "d1".into(),
+            asset: "BTC".into(),
+            qty: dec!(1),
+            jpy_proceeds: dec!(150),
+            ts: ts(2026, 1, 2),
+        },
+    ];
+
+    let moving = calculate(
+        Config {
+            method: CostMethod::MovingAverage,
+            tax_year: 2026,
+            rounding: RoundingPolicy::default(),
+        },
+        &events,
+    );
+
+    let total = calculate(
+        Config {
+            method: CostMethod::TotalAverage,
+            tax_year: 2026,
+            rounding: RoundingPolicy::default(),
+        },
+        &events,
+    );
+
+    assert_eq!(moving.realized_pnl_jpy, dec!(30));
+    assert_eq!(total.realized_pnl_jpy, dec!(30));
+    assert_eq!(moving.positions["BTC"].qty, dec!(0));
+    assert_eq!(total.positions["BTC"].qty, dec!(0));
+
+    assert!(
+        moving
+            .diagnostics
+            .iter()
+            .any(|w| matches!(w, Warning::YearMismatch { event_year: 2025, tax_year: 2026 }))
+    );
+    assert!(
+        total
+            .diagnostics
+            .iter()
+            .any(|w| matches!(w, Warning::YearMismatch { event_year: 2025, tax_year: 2026 }))
+    );
 }

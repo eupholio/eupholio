@@ -34,6 +34,7 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 event_year: e.year(),
                 tax_year,
             });
+            continue;
         }
 
         match e {

@@ -28,5 +28,5 @@
 
 - `DuplicateEventId`
 - `NegativePosition`
-- `YearMismatch`
+- `YearMismatch`（`event.ts` の年が `tax_year` と不一致。警告を出しつつ当該イベントは計算から除外）
 - `YearBoundaryCarry`
