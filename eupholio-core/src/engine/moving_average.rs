@@ -37,18 +37,13 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
             continue;
         }
 
-        let mut touched_asset: Option<&str> = None;
-        let mut round_realized = false;
-        let mut round_income = false;
-
-        match e {
+        let (touched_asset, round_realized, round_income) = match e {
             Event::Acquire {
                 asset,
                 qty,
                 jpy_cost,
                 ..
             } => {
-                touched_asset = Some(asset.as_str());
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
                     avg_cost_jpy_per_unit: Decimal::ZERO,
@@ -63,6 +58,7 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                     };
                     p.qty = new_qty;
                 }
+                (Some(asset.as_str()), false, false)
             }
             Event::Dispose {
                 asset,
@@ -70,8 +66,6 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 jpy_proceeds,
                 ..
             } => {
-                touched_asset = Some(asset.as_str());
-                round_realized = true;
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
                     avg_cost_jpy_per_unit: Decimal::ZERO,
@@ -84,6 +78,7 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                         asset: asset.clone(),
                     });
                 }
+                (Some(asset.as_str()), true, false)
             }
             Event::Income {
                 asset,
@@ -91,8 +86,6 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 jpy_value,
                 ..
             } => {
-                touched_asset = Some(asset.as_str());
-                round_income = true;
                 income += *jpy_value;
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
@@ -108,6 +101,7 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                     };
                     p.qty = new_qty;
                 }
+                (Some(asset.as_str()), false, true)
             }
             Event::Transfer {
                 asset,
@@ -115,7 +109,6 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 direction,
                 ..
             } => {
-                touched_asset = Some(asset.as_str());
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
                     avg_cost_jpy_per_unit: Decimal::ZERO,
@@ -129,8 +122,9 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                         asset: asset.clone(),
                     });
                 }
+                (Some(asset.as_str()), false, false)
             }
-        }
+        };
 
         if let Some(policy) = per_event_rounding {
             apply_per_event_rounding(
