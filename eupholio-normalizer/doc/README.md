@@ -13,4 +13,4 @@ Documentation for source-specific normalization into `eupholio-core::event::Even
 - [19-normalizer-coincheck-trade-history-mapping.md](./19-normalizer-coincheck-trade-history-mapping.md)
   - Concrete phase-2 mapping for Coincheck trade history CSV (Acquire/Dispose scope)
 - [20-normalizer-coincheck-phase3-scope.md](./20-normalizer-coincheck-phase3-scope.md)
-  - Scoped plan for adding Received/Sent transfer mapping in coincheck
+  - Scoped plan for adding Received/Sent transfer mapping in Coincheck

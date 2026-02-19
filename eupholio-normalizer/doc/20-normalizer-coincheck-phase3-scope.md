@@ -8,16 +8,17 @@ Add support for transfer-like rows in Coincheck history with explicit mapping an
 
 ## Target operations (phase-3)
 
-- `Received` -> map to `Event::Transfer { direction: In }`
-- `Sent` -> map to `Event::Transfer { direction: Out }`
+- `Received` -> map to `Event::Transfer { direction: TransferDirection::In }`
+- `Sent` -> map to `Event::Transfer { direction: TransferDirection::Out }`
 
 Other operations remain out-of-scope and must continue to emit explicit diagnostics.
 
 ## Mapping draft
 
-Required columns (same as phase-2 baseline):
+Required headers (same as phase-2 baseline):
 
-- `id`, `time`, `operation`, `amount`, `trading_currency`
+- `id`, `time`, `operation`, `amount`, `trading_currency`, `fee`, `comment`
+  - `fee` / `comment` remain required for compatibility with phase-2 parser, but are not used in phase-3 transfer mapping.
 
 Mapping:
 
