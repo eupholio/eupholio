@@ -1,32 +1,32 @@
 # Overview
 
-## 目的
+## Purpose
 
-`eupholio-core` は、暗号資産の **JPYベース損益計算エンジン** です。
+`eupholio-core` is a **JPY-based profit/loss calculation engine** for crypto assets.
 
-- サーバ機能やDBアクセスは持たない
-- 価格取得やFX換算は行わない
-- 正規化済みイベント入力から、損益・在庫を計算する
+- It does not provide server features or database access.
+- It does not fetch market prices or perform FX conversion.
+- It calculates profit/loss and positions from normalized event inputs.
 
-## スコープ
+## Scope
 
-- `CostMethod` 切替
+- `CostMethod` switching
   - `MovingAverage`
   - `TotalAverage`
-- 年次（tax_year）を伴う集計
-- 繰越（carry-in）を使った総平均計算
-- CLIによるJSON入出力
+- Aggregation by tax year (`tax_year`)
+- Total-average calculation using carry-in balances
+- JSON I/O via CLI
 
-## 非スコープ
+## Out of Scope
 
-- 取引所API接続
-- 取引所CSV個別パース
-- 価格取得API
+- Exchange API integration
+- Exchange-specific CSV parsing
+- Price-feed APIs
 - UI / DB
 
-## 設計原則
+## Design Principles
 
-1. コアは帳簿計算のみ
-2. 入力は正規化済み（JPY値を含む）
-3. 浮動小数点は使わない（`rust_decimal`）
-4. エンジン切替は enum 分岐で行う（trait依存を最小化）
+1. The core focuses only on ledger calculations.
+2. Inputs must already be normalized (including JPY values).
+3. No floating-point arithmetic (`rust_decimal` is used).
+4. Engine switching is handled with enum branching (minimizing trait dependency).

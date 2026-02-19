@@ -2,7 +2,7 @@
 
 ## 1) MovingAverage
 
-資産ごとに状態を保持:
+Maintain state per asset:
 - `qty`
 - `avg_cost_jpy_per_unit`
 
@@ -15,34 +15,34 @@
 - `cost = sold_qty * avg_cost`
 - `realized = jpy_proceeds - cost`
 - `qty -= sold_qty`
-- `avg_cost` は維持
+- `avg_cost` is retained
 
 ### Income
 
-Acquire相当として在庫へ取り込む（`income_jpy` にも加算）
+Treat as equivalent to `Acquire` and add to inventory (also added to `income_jpy`).
 
 ---
 
 ## 2) TotalAverage
 
-年次・資産ごとに集計:
+Aggregate by year and asset:
 - `carry_in_qty`, `carry_in_cost`
 - `total_acquired_qty`, `total_acquired_cost`
 - `total_disposed_qty`, `total_disposed_proceeds`
 
-### 年次平均
+### Yearly Average
 
 `avg = (carry_in_cost + total_acquired_cost) / (carry_in_qty + total_acquired_qty)`
 
-### 実現損益
+### Realized Profit/Loss
 
 `realized = total_disposed_proceeds - total_disposed_qty * avg`
 
-### 繰越
+### Carry Forward
 
 - `carry_out_qty = (carry_in_qty + total_acquired_qty) - total_disposed_qty`
 - `carry_out_cost = carry_out_qty * avg`
 
-補足:
-- `Transfer` は損益計算対象外
-- 年次外イベントは `YearMismatch` で除外
+Notes:
+- `Transfer` is excluded from profit/loss calculation.
+- Out-of-year events are excluded with `YearMismatch`.

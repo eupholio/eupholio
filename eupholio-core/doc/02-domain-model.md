@@ -3,7 +3,7 @@
 ## Config
 
 - `method`: `MovingAverage` or `TotalAverage`
-- `tax_year`: 対象年
+- `tax_year`: target year
 
 ## Event
 
@@ -12,21 +12,21 @@
 - `Income { asset, qty, jpy_value, ts }`
 - `Transfer { asset, qty, direction, ts }`
 
-補足:
-- `id` を持ち、重複イベント検知に利用
-- すべて正規化済み前提（JPY値が確定している）
+Notes:
+- Includes an `id`, used for duplicate event detection.
+- All events are assumed to be pre-normalized (JPY values are finalized).
 
 ## Report
 
-- `positions`: 資産ごとの残数量・平均単価
-- `realized_pnl_jpy`: 実現損益合計
-- `income_jpy`: 所得相当（Income由来）
-- `yearly_summary`: 総平均時の年次サマリ
-- `diagnostics`: 警告
+- `positions`: remaining quantity and average unit cost per asset
+- `realized_pnl_jpy`: total realized profit/loss
+- `income_jpy`: income-equivalent amount (from `Income` events)
+- `yearly_summary`: yearly summary for the total-average method
+- `diagnostics`: warnings
 
 ## Warning
 
 - `DuplicateEventId`
 - `NegativePosition`
-- `YearMismatch`（`event.ts` の年が `tax_year` と不一致。警告を出しつつ当該イベントは計算から除外）
+- `YearMismatch` (the year in `event.ts` differs from `tax_year`; a warning is issued and the event is excluded from calculation)
 - `YearBoundaryCarry`
