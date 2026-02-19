@@ -11,6 +11,7 @@ Implemented:
 - External rounding override input (`rounding`)
 - Go vs Rust parity scripts
 - Year mismatch handling: events whose `event.ts` year differs from `tax_year` are emitted as warnings (`YearMismatch` / `EVENT_YEAR_MISMATCH`) and excluded from calculation
+- Per-year rounding consistency for total-average: `carry_out_cost` is derived from rounded `carry_out_qty × average_cost_per_unit` (then rounded by JPY rule)
 
 Not yet fully implemented:
 - Exchange-specific normalizers
