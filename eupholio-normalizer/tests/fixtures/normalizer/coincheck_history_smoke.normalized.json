@@ -1,0 +1,18 @@
+[
+  {
+    "type": "Acquire",
+    "id": "cc-101:acquire",
+    "asset": "BTC",
+    "qty": "0.1",
+    "jpy_cost": "500500.0",
+    "ts": "2026-01-05T09:00:02Z"
+  },
+  {
+    "type": "Dispose",
+    "id": "cc-102:dispose",
+    "asset": "BTC",
+    "qty": "0.1",
+    "jpy_proceeds": "699300",
+    "ts": "2026-02-10T03:00:04Z"
+  }
+]

@@ -330,6 +330,7 @@ dependencies = [
  "chrono",
  "csv",
  "eupholio-core",
+ "regex",
  "rust_decimal",
  "serde_json",
 ]

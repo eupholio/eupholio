@@ -175,12 +175,14 @@ fn split_exchange(s: &str) -> Result<(&str, &str), String> {
 
 fn sanitize_diagnostic_value(s: &str) -> String {
     let mut out = String::new();
+    let mut len = 0usize;
     for c in s.chars() {
         if c.is_control() {
             continue;
         }
         out.push(c);
-        if out.chars().count() >= MAX_DIAGNOSTIC_VALUE_LEN {
+        len += 1;
+        if len >= MAX_DIAGNOSTIC_VALUE_LEN {
             out.push('…');
             break;
         }
