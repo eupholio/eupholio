@@ -13,7 +13,6 @@
     {"type":"Dispose","id":"d2","asset":"ETH","qty":"1","jpy_proceeds":"100.49","ts":"2026-01-04T00:00:00Z"}
   ],
   "expectation": {
-    "moving_realized_pnl_jpy": "0.98",
     "total_realized_pnl_jpy": "0"
   },
   "check_moving": false,

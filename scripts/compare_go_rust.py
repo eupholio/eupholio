@@ -56,8 +56,12 @@ def run_rust(inp):
         input=json.dumps(inp).encode(),
         cwd=ROOT / "eupholio-core",
         capture_output=True,
-        check=True,
     )
+    if p.returncode != 0:
+        return {
+            "error": p.stderr.decode().strip() or f"rust cli failed: exit={p.returncode}",
+            "exit_code": p.returncode,
+        }
     return json.loads(p.stdout)
 
 
@@ -101,30 +105,63 @@ def check_expectation(expectation, rust_m, rust_t):
 def compare_case(path):
     fixture = json.loads(path.read_text())
     go_outs = run_go(fixture)
-    rust_m = run_rust(rust_input(fixture, "moving_average"))
-    rust_t = run_rust(rust_input(fixture, "total_average"))
+
+    check_moving = fixture.get("check_moving", True)
+    check_total = fixture.get("check_total", True)
+    expectation = fixture.get("expectation") or {}
+
+    need_moving = check_moving or expectation.get("moving_realized_pnl_jpy") is not None
+    need_total = check_total or expectation.get("total_realized_pnl_jpy") is not None
+
+    rust_m = run_rust(rust_input(fixture, "moving_average")) if need_moving else None
+    rust_t = run_rust(rust_input(fixture, "total_average")) if need_total else None
 
     go_m = pick(go_outs, "moving_average")
     go_t = pick(go_outs, "total_average")
 
     print(f"== {path.name} ==")
-    print("moving: go=", go_m["realized_pnl_jpy"], " rust=", rust_m["realized_pnl_jpy"])
-    print("total : go=", go_t["realized_pnl_jpy"], " rust=", rust_t["realized_pnl_jpy"])
+    print(
+        "moving: go=",
+        go_m["realized_pnl_jpy"],
+        " rust=",
+        rust_m["realized_pnl_jpy"] if rust_m and "realized_pnl_jpy" in rust_m else "(skipped)",
+    )
+    print(
+        "total : go=",
+        go_t["realized_pnl_jpy"],
+        " rust=",
+        rust_t["realized_pnl_jpy"] if rust_t and "realized_pnl_jpy" in rust_t else "(skipped)",
+    )
 
-    check_moving = fixture.get("check_moving", True)
-    check_total = fixture.get("check_total", True)
+    moving_error = rust_m.get("error") if rust_m else None
+    total_error = rust_t.get("error") if rust_t else None
 
-    moving_equal = approx_equal(jp_report_round(go_m["realized_pnl_jpy"]), rust_m["realized_pnl_jpy"])
-    total_equal = approx_equal(jp_report_round(go_t["realized_pnl_jpy"]), rust_t["realized_pnl_jpy"])
+    moving_equal = None
+    if check_moving and rust_m and "realized_pnl_jpy" in rust_m:
+        moving_equal = approx_equal(jp_report_round(go_m["realized_pnl_jpy"]), rust_m["realized_pnl_jpy"])
 
-    exp_moving_ok, exp_total_ok = check_expectation(fixture.get("expectation"), rust_m, rust_t)
+    total_equal = None
+    if check_total and rust_t and "realized_pnl_jpy" in rust_t:
+        total_equal = approx_equal(jp_report_round(go_t["realized_pnl_jpy"]), rust_t["realized_pnl_jpy"])
+
+    exp_moving_ok = None
+    moving_expected = expectation.get("moving_realized_pnl_jpy")
+    if moving_expected is not None and rust_m and "realized_pnl_jpy" in rust_m:
+        exp_moving_ok = approx_equal(rust_m["realized_pnl_jpy"], moving_expected)
+
+    exp_total_ok = None
+    total_expected = expectation.get("total_realized_pnl_jpy")
+    if total_expected is not None and rust_t and "realized_pnl_jpy" in rust_t:
+        exp_total_ok = approx_equal(rust_t["realized_pnl_jpy"], total_expected)
 
     return {
         "case": path.name,
-        "moving_equal": moving_equal if check_moving else None,
-        "total_equal": total_equal if check_total else None,
+        "moving_equal": moving_equal,
+        "total_equal": total_equal,
         "moving_expected_ok": exp_moving_ok,
         "total_expected_ok": exp_total_ok,
+        "moving_error": moving_error,
+        "total_error": total_error,
     }
 
 
@@ -135,7 +172,8 @@ def has_failures(result):
         result.get("moving_expected_ok"),
         result.get("total_expected_ok"),
     ]
-    return any(v is False for v in checks)
+    errors = [result.get("moving_error"), result.get("total_error")]
+    return any(v is False for v in checks) or any(e is not None for e in errors)
 
 
 if __name__ == "__main__":
