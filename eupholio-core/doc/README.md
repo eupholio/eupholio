@@ -22,3 +22,5 @@
   - 取引所入力をEventへ正規化するI/F草案
 - [09-validation-codes.md](./09-validation-codes.md)
   - validate が返す issue code 一覧
+- [10-pr-prep-core-rs.md](./10-pr-prep-core-rs.md)
+  - core-rs から main へのPR準備ノート
