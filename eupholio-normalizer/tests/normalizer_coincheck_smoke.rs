@@ -266,7 +266,7 @@ cc18,2026-01-01 00:00:00 +0900,Withdrawal,10,EUR,,,0,\"\"\n";
 }
 
 #[test]
-fn coincheck_missing_required_field_is_reported() {
+fn coincheck_short_row_is_reported_as_invalid_csv_row() {
     let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
 cc19,2026-01-01 00:00:00 +0900,Canceled\n";
 
