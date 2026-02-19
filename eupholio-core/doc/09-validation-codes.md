@@ -16,8 +16,6 @@
   - `rounding.unit_price.scale > 18`
 - `ROUNDING_QUANTITY_SCALE_TOO_LARGE`
   - `rounding.quantity.scale > 18`
-- `EVENT_YEAR_MISMATCH`
-  - `event.ts` の年が `tax_year` と不一致
 - `DUPLICATE_EVENT_ID`
   - イベントID重複
 - `ACQUIRE_QTY_NON_POSITIVE`
@@ -45,6 +43,8 @@
   - moving_averageでcarry_in指定（現在無視）
 - `CARRY_IN_COST_WITH_ZERO_QTY`
   - qty=0でcost>0
+- `EVENT_YEAR_MISMATCH`
+  - `event.ts` の年が `tax_year` と不一致
 
 ## 運用指針
 
