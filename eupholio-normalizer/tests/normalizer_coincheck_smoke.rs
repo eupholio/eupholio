@@ -113,3 +113,27 @@ cc6,2025-12-31 23:30:00 -0900,Completed trading contracts,1000,JPY,,,0,\"Rate: 1
         _ => panic!("expected dispose event"),
     }
 }
+
+#[test]
+fn coincheck_trading_currency_is_case_insensitive() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc7,2026-01-01 00:00:00 +0900,Completed trading contracts,1,btc,,,0,\"Rate: 10000.0, Pair: btc_jpy\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 1);
+    match &normalized.events[0] {
+        Event::Acquire { .. } => {}
+        _ => panic!("expected acquire event"),
+    }
+}
+
+#[test]
+fn coincheck_zero_rate_is_rejected() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc8,2026-01-01 00:00:00 +0900,Completed trading contracts,1000,JPY,,,0,\"Rate: 0, Pair: btc_jpy\"\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("zero rate should fail")
+        .contains("rate must be > 0"));
+}

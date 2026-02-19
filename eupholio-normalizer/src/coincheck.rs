@@ -77,7 +77,7 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
     }
 
     let amount = parse_decimal(get(index, row, "amount")?)?;
-    let trading_currency = get(index, row, "trading_currency")?;
+    let trading_currency = get(index, row, "trading_currency")?.to_ascii_uppercase();
     let fee = parse_optional_decimal(get(index, row, "fee")?)?.unwrap_or(Decimal::ZERO);
     let ts = parse_datetime(get(index, row, "time")?)?;
 
@@ -87,6 +87,10 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
             "unsupported payment asset '{}', only JPY is supported",
             base
         ));
+    }
+
+    if rate <= Decimal::ZERO {
+        return Err(format!("rate must be > 0, got {}", rate));
     }
 
     let event = if trading_currency == quote {
