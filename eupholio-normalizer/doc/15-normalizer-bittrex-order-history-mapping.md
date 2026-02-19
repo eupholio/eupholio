@@ -36,4 +36,4 @@ This document freezes the phase-1 bootstrap mapping for one existing source alre
 
 - No transfer/income rows yet
 - No FX conversion in normalizer (fixture uses `JPY-*` pair)
-- CSV parser is intentionally minimal and strict for required columns
+- Timestamp timezone handling is currently fixed to UTC assumption for `Closed`; if source timezone semantics differ, conversion strategy must be added in a follow-up

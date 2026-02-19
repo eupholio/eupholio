@@ -8,6 +8,7 @@ use std::str::FromStr;
 const ORDER_TYPE_LIMIT_BUY: &str = "LIMIT_BUY";
 const ORDER_TYPE_LIMIT_SELL: &str = "LIMIT_SELL";
 const CLOSED_LAYOUT: &str = "%m/%d/%Y %I:%M:%S %p";
+const MAX_DIAGNOSTIC_VALUE_LEN: usize = 64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NormalizeDiagnostic {
@@ -59,10 +60,20 @@ pub fn normalize_order_history_csv(raw: &str) -> Result<NormalizeResult, String>
 
                 let reason = match (order_type, uuid) {
                     (Some(ot), Some(id)) => {
-                        format!("unsupported order type: OrderType='{}', Uuid='{}'", ot, id)
+                        format!(
+                            "unsupported order type: OrderType='{}', Uuid='{}'",
+                            sanitize_diagnostic_value(&ot),
+                            sanitize_diagnostic_value(&id)
+                        )
                     }
-                    (Some(ot), None) => format!("unsupported order type: OrderType='{}'", ot),
-                    (None, Some(id)) => format!("unsupported order type: Uuid='{}'", id),
+                    (Some(ot), None) => format!(
+                        "unsupported order type: OrderType='{}'",
+                        sanitize_diagnostic_value(&ot)
+                    ),
+                    (None, Some(id)) => format!(
+                        "unsupported order type: Uuid='{}'",
+                        sanitize_diagnostic_value(&id)
+                    ),
                     (None, None) => "unsupported order type".to_string(),
                 };
 
@@ -153,5 +164,26 @@ fn split_exchange(s: &str) -> Result<(&str, &str), String> {
     if parts.next().is_some() {
         return Err(format!("invalid exchange pair '{}'", s));
     }
+    if payment.is_empty() {
+        return Err("missing payment asset".to_string());
+    }
+    if trading.is_empty() {
+        return Err("missing trading asset".to_string());
+    }
     Ok((payment, trading))
+}
+
+fn sanitize_diagnostic_value(s: &str) -> String {
+    let mut out = String::new();
+    for c in s.chars() {
+        if c.is_control() {
+            continue;
+        }
+        out.push(c);
+        if out.chars().count() >= MAX_DIAGNOSTIC_VALUE_LEN {
+            out.push('…');
+            break;
+        }
+    }
+    out
 }

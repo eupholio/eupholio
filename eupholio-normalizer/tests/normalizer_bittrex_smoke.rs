@@ -56,3 +56,30 @@ q1,JPY-BTC,LIMIT_BUY,1,100,1\n";
     let err = normalize_order_history_csv(raw).expect_err("missing header should fail");
     assert!(err.contains("missing required header Closed"));
 }
+
+#[test]
+fn bittrex_normalizer_errors_on_invalid_exchange_and_values() {
+    let bad_exchange = "Uuid,Exchange,OrderType,Quantity,Price,Commission,Closed\n\
+q1,JPY--BTC,LIMIT_BUY,1,100,1,01/01/2026 12:00:00 AM\n";
+    assert!(normalize_order_history_csv(bad_exchange)
+        .expect_err("invalid exchange should fail")
+        .contains("invalid exchange pair"));
+
+    let non_jpy = "Uuid,Exchange,OrderType,Quantity,Price,Commission,Closed\n\
+q2,USD-BTC,LIMIT_BUY,1,100,1,01/01/2026 12:00:00 AM\n";
+    assert!(normalize_order_history_csv(non_jpy)
+        .expect_err("non-JPY should fail")
+        .contains("only JPY is supported"));
+
+    let bad_decimal = "Uuid,Exchange,OrderType,Quantity,Price,Commission,Closed\n\
+q3,JPY-BTC,LIMIT_BUY,not-a-number,100,1,01/01/2026 12:00:00 AM\n";
+    assert!(normalize_order_history_csv(bad_decimal)
+        .expect_err("invalid decimal should fail")
+        .contains("invalid decimal"));
+
+    let bad_datetime = "Uuid,Exchange,OrderType,Quantity,Price,Commission,Closed\n\
+q4,JPY-BTC,LIMIT_BUY,1,100,1,not-a-datetime\n";
+    assert!(normalize_order_history_csv(bad_datetime)
+        .expect_err("invalid datetime should fail")
+        .contains("invalid datetime"));
+}
