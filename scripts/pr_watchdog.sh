@@ -3,11 +3,28 @@ set -euo pipefail
 
 REPO="${REPO:-eupholio/eupholio}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORKSPACE_ROOT="$(cd "$REPO_ROOT/.." && pwd)"
-STATE_FILE="${STATE_FILE:-$WORKSPACE_ROOT/memory/pr-watchdog-state.json}"
+WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$REPO_ROOT/.." && pwd)}"
+
+if ! [[ "$REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]; then
+  echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
+  exit 1
+fi
 
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
+
+if [[ -n "${STATE_FILE:-}" ]]; then
+  :
+else
+  DEFAULT_STATE_DIR_OUT="$WORKSPACE_ROOT/memory"
+  DEFAULT_STATE_DIR_IN="$REPO_ROOT/.cache"
+  if mkdir -p "$DEFAULT_STATE_DIR_OUT" 2>/dev/null; then
+    STATE_FILE="$DEFAULT_STATE_DIR_OUT/pr-watchdog-state.json"
+  else
+    mkdir -p "$DEFAULT_STATE_DIR_IN"
+    STATE_FILE="$DEFAULT_STATE_DIR_IN/pr-watchdog-state.json"
+  fi
+fi
 
 for cmd in gh jq; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -15,6 +32,11 @@ for cmd in gh jq; do
     exit 1
   fi
 done
+
+if ! gh auth status >/dev/null 2>&1; then
+  echo "gh not authenticated" >&2
+  exit 1
+fi
 
 mkdir -p "$(dirname "$STATE_FILE")"
 if [[ ! -f "$STATE_FILE" ]] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
@@ -69,7 +91,7 @@ if ! pr_lines=$(gh pr list --repo "$REPO" --state open --json number,url --jq '.
   warn_once
 fi
 
-prev_state="$(cat "$STATE_FILE")"
+prev_state="$(cat "$STATE_FILE" 2>/dev/null || echo '{"prs":{}}')"
 new_state='{"prs":{}}'
 alerts=""
 
@@ -115,7 +137,7 @@ if [[ "$list_ok" -eq 1 ]]; then
       unresolved="$prev_unresolved"
     fi
 
-    new_fail_count=$(jq -n --argjson cur "$failing" --argjson prev "$prev_failing" '($cur - $prev) | length')
+    new_fail_count=$(jq -n --argjson cur "$failing" --argjson prev "$prev_failing" '($cur - $prev) | length' 2>/dev/null || echo 0)
 
     need_alert=0
     reasons=""
@@ -129,7 +151,10 @@ if [[ "$list_ok" -eq 1 ]]; then
       reasons+="Unresolved reviews increased: ${prev_unresolved}->${unresolved}"
     fi
 
-    sig=$(jq -nc --arg n "$pr_number" --argjson f "$failing" --argjson u "$unresolved" '{prNumber:($n|tonumber),failingChecks:$f,unresolvedCount:$u}')
+    if ! sig=$(jq -nc --arg n "$pr_number" --argjson f "$failing" --argjson u "$unresolved" '{prNumber:($n|tonumber),failingChecks:$f,unresolvedCount:$u}' 2>/dev/null); then
+      warn_once
+      sig="$prev_sig"
+    fi
     last_sig="$prev_sig"
     if [[ "$need_alert" -eq 1 ]] && [[ "$sig" != "$prev_sig" ]]; then
       alerts+=$'\n- PR #'
@@ -144,14 +169,18 @@ if [[ "$list_ok" -eq 1 ]]; then
       last_sig="$prev_sig"
     fi
 
-    new_state=$(echo "$new_state" | jq --arg n "$pr_number" --argjson u "$unresolved" --argjson f "$failing" --arg sig "$last_sig" '.prs[$n]={lastUnresolvedCount:$u,lastFailingChecks:$f,lastNotifiedSignature:$sig}')
+    if ! tmp_state=$(echo "$new_state" | jq --arg n "$pr_number" --argjson u "$unresolved" --argjson f "$failing" --arg sig "$last_sig" '.prs[$n]={lastUnresolvedCount:$u,lastFailingChecks:$f,lastNotifiedSignature:$sig}' 2>/dev/null); then
+      warn_once
+      continue
+    fi
+    new_state="$tmp_state"
   done <<< "$pr_lines"
 
-  printf '%s\n' "$new_state" > "$STATE_FILE"
+  printf '%s\n' "$new_state" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 fi
 
 if [[ -n "$alerts" ]]; then
-  echo "Action required PRs detected.${alerts}"
+  echo "Action required PRs detected:${alerts}"
 elif [[ "$WARN" -eq 1 ]]; then
   echo "PR watchdog had partial errors (continuing)"
 else
