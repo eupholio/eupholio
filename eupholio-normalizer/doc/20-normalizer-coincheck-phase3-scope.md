@@ -22,7 +22,9 @@ Required headers (same as phase-2 baseline):
 
 Mapping:
 
-- `id` -> `id = "{id}:transfer_in" | "{id}:transfer_out"`
+- `id` ->
+  - `id = "{id}:transfer_in"` for `Received`
+  - `id = "{id}:transfer_out"` for `Sent`
 - `trading_currency` -> `asset` (upper-cased)
 - `amount` -> `qty` (must be `> 0`)
 - `time` -> `ts` (existing parser, UTC-normalized)
@@ -43,7 +45,7 @@ Warnings/diagnostics:
 
 ## Test plan
 
-1. fixture: `coincheck_history_phase3_smoke.csv`
+1. fixture: `coincheck_history_transfers_smoke.csv`
 2. fixture: expected normalized events JSON
 3. e2e smoke:
    - includes `Received` + `Sent` rows
