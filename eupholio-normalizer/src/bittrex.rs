@@ -72,7 +72,13 @@ fn map_row_to_event(index: &HashMap<String, usize>, row: &StringRecord) -> Resul
     let commission = parse_decimal(get(index, row, "Commission")?)?;
     let ts = parse_datetime(get(index, row, "Closed")?)?;
 
-    let (_payment, trading) = split_exchange(exchange)?;
+    let (payment, trading) = split_exchange(exchange)?;
+    if payment != "JPY" {
+        return Err(format!(
+            "unsupported payment asset '{}', only JPY is supported",
+            payment
+        ));
+    }
 
     let event = match order_type {
         ORDER_TYPE_LIMIT_BUY => Event::Acquire {
