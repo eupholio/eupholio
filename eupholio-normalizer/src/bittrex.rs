@@ -1,5 +1,5 @@
-use crate::event::Event;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use eupholio_core::event::Event;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::str::FromStr;

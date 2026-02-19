@@ -1,7 +1,6 @@
 pub mod config;
 pub mod engine;
 pub mod event;
-pub mod normalizer;
 pub mod report;
 
 use std::collections::HashMap;

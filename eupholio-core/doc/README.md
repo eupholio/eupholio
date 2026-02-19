@@ -32,5 +32,3 @@ This directory contains design and operational documentation for `eupholio-core`
   - Locked semantics for per-year rounding behavior
 - [14-normalizer-phase1.md](./14-normalizer-phase1.md)
   - Phase-1 integration plan from source data to core report
-- [15-normalizer-bittrex-order-history-mapping.md](./15-normalizer-bittrex-order-history-mapping.md)
-  - Concrete phase-1 mapping from Bittrex OrderHistory CSV into Event model

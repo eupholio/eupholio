@@ -1,6 +1,6 @@
 use eupholio_core::config::{Config, CostMethod};
 use eupholio_core::event::Event;
-use eupholio_core::normalizer::bittrex::normalize_order_history_csv;
+use eupholio_normalizer::bittrex::normalize_order_history_csv;
 
 #[test]
 fn bittrex_smoke_source_to_normalized_to_calculate() {
