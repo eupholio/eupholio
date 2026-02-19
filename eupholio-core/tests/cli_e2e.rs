@@ -202,3 +202,65 @@ fn cli_validate_per_event_no_timing_warning() {
         .success()
         .stdout(predicate::str::contains("ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED").not());
 }
+
+#[test]
+fn cli_version_works() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
+    cmd.arg("version")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("0.1.0"));
+}
+
+#[test]
+fn cli_calc_default_subcommand_works() {
+    let input = r#"{
+      "method":"moving_average",
+      "tax_year":2026,
+      "events":[
+        {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"3000000","ts":"2026-01-01T00:00:00Z"}
+      ]
+    }"#;
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
+    cmd.write_stdin(input)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"positions\""));
+}
+
+#[test]
+fn cli_validate_warn_and_error_for_carry_in_moving_average() {
+    let input = r#"{
+      "method":"moving_average",
+      "tax_year":2026,
+      "carry_in":{"BTC":{"qty":"0","cost":"1"}},
+      "events":[
+        {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"1","ts":"2026-01-01T00:00:00Z"}
+      ]
+    }"#;
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
+    cmd.arg("validate")
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("CARRY_IN_IGNORED_FOR_MOVING"))
+        .stdout(predicate::str::contains("CARRY_IN_COST_WITH_ZERO_QTY"));
+}
+
+#[test]
+fn cli_calc_ng_invalid_method() {
+    let input = r#"{
+      "method":"unknown_method",
+      "tax_year":2026,
+      "events":[]
+    }"#;
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
+    cmd.arg("calc")
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("unsupported method"));
+}
