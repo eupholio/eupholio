@@ -230,7 +230,7 @@ fn cli_calc_default_subcommand_works() {
 }
 
 #[test]
-fn cli_validate_warn_and_error_for_carry_in_moving_average() {
+fn cli_validate_warn_for_carry_in_moving_average() {
     let input = r#"{
       "method":"moving_average",
       "tax_year":2026,
