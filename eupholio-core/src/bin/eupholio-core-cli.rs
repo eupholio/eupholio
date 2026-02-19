@@ -28,6 +28,55 @@ enum Level {
     Warning,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum ValidationCode {
+    InvalidMethod,
+    EmptyEvents,
+    UnusualTaxYear,
+    CarryInIgnoredForMoving,
+    NegativeCarryInQty,
+    NegativeCarryInCost,
+    CarryInCostWithZeroQty,
+    RoundingJpyScaleTooLarge,
+    RoundingUnitPriceScaleTooLarge,
+    RoundingQuantityScaleTooLarge,
+    RoundingTimingNotFullyImplemented,
+    DuplicateEventId,
+    AcquireQtyNonPositive,
+    AcquireCostNegative,
+    DisposeQtyNonPositive,
+    DisposeProceedsNegative,
+    IncomeQtyNonPositive,
+    IncomeValueNegative,
+    TransferQtyNonPositive,
+}
+
+impl ValidationCode {
+    fn as_str(self) -> &'static str {
+        match self {
+            ValidationCode::InvalidMethod => "INVALID_METHOD",
+            ValidationCode::EmptyEvents => "EMPTY_EVENTS",
+            ValidationCode::UnusualTaxYear => "UNUSUAL_TAX_YEAR",
+            ValidationCode::CarryInIgnoredForMoving => "CARRY_IN_IGNORED_FOR_MOVING",
+            ValidationCode::NegativeCarryInQty => "NEGATIVE_CARRY_IN_QTY",
+            ValidationCode::NegativeCarryInCost => "NEGATIVE_CARRY_IN_COST",
+            ValidationCode::CarryInCostWithZeroQty => "CARRY_IN_COST_WITH_ZERO_QTY",
+            ValidationCode::RoundingJpyScaleTooLarge => "ROUNDING_JPY_SCALE_TOO_LARGE",
+            ValidationCode::RoundingUnitPriceScaleTooLarge => "ROUNDING_UNIT_PRICE_SCALE_TOO_LARGE",
+            ValidationCode::RoundingQuantityScaleTooLarge => "ROUNDING_QUANTITY_SCALE_TOO_LARGE",
+            ValidationCode::RoundingTimingNotFullyImplemented => "ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED",
+            ValidationCode::DuplicateEventId => "DUPLICATE_EVENT_ID",
+            ValidationCode::AcquireQtyNonPositive => "ACQUIRE_QTY_NON_POSITIVE",
+            ValidationCode::AcquireCostNegative => "ACQUIRE_COST_NEGATIVE",
+            ValidationCode::DisposeQtyNonPositive => "DISPOSE_QTY_NON_POSITIVE",
+            ValidationCode::DisposeProceedsNegative => "DISPOSE_PROCEEDS_NEGATIVE",
+            ValidationCode::IncomeQtyNonPositive => "INCOME_QTY_NON_POSITIVE",
+            ValidationCode::IncomeValueNegative => "INCOME_VALUE_NEGATIVE",
+            ValidationCode::TransferQtyNonPositive => "TRANSFER_QTY_NON_POSITIVE",
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct ValidationIssue {
     code: &'static str,
@@ -53,20 +102,20 @@ impl ValidationResult {
         }
     }
 
-    fn push_error(&mut self, code: &'static str, message: String) {
+    fn push_error(&mut self, code: ValidationCode, message: String) {
         self.ok = false;
         self.errors.push(message.clone());
         self.issues.push(ValidationIssue {
-            code,
+            code: code.as_str(),
             level: Level::Error,
             message,
         });
     }
 
-    fn push_warning(&mut self, code: &'static str, message: String) {
+    fn push_warning(&mut self, code: ValidationCode, message: String) {
         self.warnings.push(message.clone());
         self.issues.push(ValidationIssue {
-            code,
+            code: code.as_str(),
             level: Level::Warning,
             message,
         });
@@ -148,23 +197,23 @@ fn validate_input(input: &Input) -> ValidationResult {
 
     let method = parse_method(&input.method);
     if let Err(e) = &method {
-        out.push_error("INVALID_METHOD", e.clone());
+        out.push_error(ValidationCode::InvalidMethod, e.clone());
     }
 
     if input.events.is_empty() {
-        out.push_warning("EMPTY_EVENTS", "events is empty".to_string());
+        out.push_warning(ValidationCode::EmptyEvents, "events is empty".to_string());
     }
 
     if input.tax_year < 2000 || input.tax_year > 3000 {
         out.push_warning(
-            "UNUSUAL_TAX_YEAR",
+            ValidationCode::UnusualTaxYear,
             format!("tax_year looks unusual: {}", input.tax_year),
         );
     }
 
     if method.as_ref().ok() == Some(&CostMethod::MovingAverage) && !input.carry_in.is_empty() {
         out.push_warning(
-            "CARRY_IN_IGNORED_FOR_MOVING",
+            ValidationCode::CarryInIgnoredForMoving,
             "carry_in is ignored for moving_average".to_string(),
         );
     }
@@ -172,19 +221,19 @@ fn validate_input(input: &Input) -> ValidationResult {
     for (asset, c) in &input.carry_in {
         if c.qty < Decimal::ZERO {
             out.push_error(
-                "NEGATIVE_CARRY_IN_QTY",
+                ValidationCode::NegativeCarryInQty,
                 format!("carry_in qty must be >= 0 (asset={asset})"),
             );
         }
         if c.cost < Decimal::ZERO {
             out.push_error(
-                "NEGATIVE_CARRY_IN_COST",
+                ValidationCode::NegativeCarryInCost,
                 format!("carry_in cost must be >= 0 (asset={asset})"),
             );
         }
         if c.qty == Decimal::ZERO && c.cost > Decimal::ZERO {
             out.push_warning(
-                "CARRY_IN_COST_WITH_ZERO_QTY",
+                ValidationCode::CarryInCostWithZeroQty,
                 format!("carry_in has cost without qty (asset={asset})"),
             );
         }
@@ -194,26 +243,26 @@ fn validate_input(input: &Input) -> ValidationResult {
         if let Some(jpy) = rounding.currency.get("JPY") {
             if jpy.scale > 18 {
                 out.push_error(
-                    "ROUNDING_JPY_SCALE_TOO_LARGE",
+                    ValidationCode::RoundingJpyScaleTooLarge,
                     "rounding.currency.JPY.scale must be <= 18".to_string(),
                 );
             }
         }
         if rounding.unit_price.scale > 18 {
             out.push_error(
-                "ROUNDING_UNIT_PRICE_SCALE_TOO_LARGE",
+                ValidationCode::RoundingUnitPriceScaleTooLarge,
                 "rounding.unit_price.scale must be <= 18".to_string(),
             );
         }
         if rounding.quantity.scale > 18 {
             out.push_error(
-                "ROUNDING_QUANTITY_SCALE_TOO_LARGE",
+                ValidationCode::RoundingQuantityScaleTooLarge,
                 "rounding.quantity.scale must be <= 18".to_string(),
             );
         }
         if rounding.timing != RoundingTiming::ReportOnly {
             out.push_warning(
-                "ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED",
+                ValidationCode::RoundingTimingNotFullyImplemented,
                 "rounding.timing other than report_only is not fully implemented yet".to_string(),
             );
         }
@@ -223,20 +272,20 @@ fn validate_input(input: &Input) -> ValidationResult {
     for e in &input.events {
         let id = e.id().to_string();
         if !ids.insert(id.clone()) {
-            out.push_error("DUPLICATE_EVENT_ID", format!("duplicate event id: {id}"));
+            out.push_error(ValidationCode::DuplicateEventId, format!("duplicate event id: {id}"));
         }
 
         match e {
             Event::Acquire { qty, jpy_cost, .. } => {
                 if *qty <= Decimal::ZERO {
                     out.push_error(
-                        "ACQUIRE_QTY_NON_POSITIVE",
+                        ValidationCode::AcquireQtyNonPositive,
                         format!("Acquire qty must be > 0 (id={})", e.id()),
                     );
                 }
                 if *jpy_cost < Decimal::ZERO {
                     out.push_error(
-                        "ACQUIRE_COST_NEGATIVE",
+                        ValidationCode::AcquireCostNegative,
                         format!("Acquire jpy_cost must be >= 0 (id={})", e.id()),
                     );
                 }
@@ -248,13 +297,13 @@ fn validate_input(input: &Input) -> ValidationResult {
             } => {
                 if *qty <= Decimal::ZERO {
                     out.push_error(
-                        "DISPOSE_QTY_NON_POSITIVE",
+                        ValidationCode::DisposeQtyNonPositive,
                         format!("Dispose qty must be > 0 (id={})", e.id()),
                     );
                 }
                 if *jpy_proceeds < Decimal::ZERO {
                     out.push_error(
-                        "DISPOSE_PROCEEDS_NEGATIVE",
+                        ValidationCode::DisposeProceedsNegative,
                         format!("Dispose jpy_proceeds must be >= 0 (id={})", e.id()),
                     );
                 }
@@ -262,13 +311,13 @@ fn validate_input(input: &Input) -> ValidationResult {
             Event::Income { qty, jpy_value, .. } => {
                 if *qty <= Decimal::ZERO {
                     out.push_error(
-                        "INCOME_QTY_NON_POSITIVE",
+                        ValidationCode::IncomeQtyNonPositive,
                         format!("Income qty must be > 0 (id={})", e.id()),
                     );
                 }
                 if *jpy_value < Decimal::ZERO {
                     out.push_error(
-                        "INCOME_VALUE_NEGATIVE",
+                        ValidationCode::IncomeValueNegative,
                         format!("Income jpy_value must be >= 0 (id={})", e.id()),
                     );
                 }
@@ -276,7 +325,7 @@ fn validate_input(input: &Input) -> ValidationResult {
             Event::Transfer { qty, .. } => {
                 if *qty <= Decimal::ZERO {
                     out.push_error(
-                        "TRANSFER_QTY_NON_POSITIVE",
+                        ValidationCode::TransferQtyNonPositive,
                         format!("Transfer qty must be > 0 (id={})", e.id()),
                     );
                 }
