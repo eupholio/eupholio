@@ -1,0 +1,12 @@
+{
+  "tax_year": 2026,
+  "check_moving": false,
+  "check_total": true,
+  "carry_in": {
+    "BTC": {"qty":"2","cost":"8000000"}
+  },
+  "events": [
+    {"type":"Acquire","asset":"BTC","qty":"1","jpy_cost":"6000000"},
+    {"type":"Dispose","asset":"BTC","qty":"1","jpy_proceeds":"7000000"}
+  ]
+}

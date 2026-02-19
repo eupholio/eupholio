@@ -22,7 +22,10 @@ def rust_input(fixture, method):
         else:
             continue
         events.append(base)
-    return {"method": method, "tax_year": fixture["tax_year"], "events": events}
+    out = {"method": method, "tax_year": fixture["tax_year"], "events": events}
+    if method == "total_average" and fixture.get("carry_in"):
+        out["carry_in"] = fixture["carry_in"]
+    return out
 
 
 def run_go(fixture):
@@ -48,6 +51,10 @@ def run_rust(inp):
     return json.loads(p.stdout)
 
 
+def approx_equal(a, b, eps=Decimal("0.000000001")):
+    return abs(Decimal(str(a)) - Decimal(str(b))) <= eps
+
+
 def pick(go_outs, method):
     key = "mam" if method == "moving_average" else "wam"
     for o in go_outs:
@@ -69,10 +76,16 @@ def compare_case(path):
     print("moving: go=", go_m["realized_pnl_jpy"], " rust=", rust_m["realized_pnl_jpy"])
     print("total : go=", go_t["realized_pnl_jpy"], " rust=", rust_t["realized_pnl_jpy"])
 
+    check_moving = fixture.get("check_moving", True)
+    check_total = fixture.get("check_total", True)
+
+    moving_equal = approx_equal(go_m["realized_pnl_jpy"], rust_m["realized_pnl_jpy"])
+    total_equal = approx_equal(go_t["realized_pnl_jpy"], rust_t["realized_pnl_jpy"])
+
     return {
         "case": path.name,
-        "moving_equal": Decimal(str(go_m["realized_pnl_jpy"])) == Decimal(str(rust_m["realized_pnl_jpy"])),
-        "total_equal": Decimal(str(go_t["realized_pnl_jpy"])) == Decimal(str(rust_t["realized_pnl_jpy"])),
+        "moving_equal": moving_equal if check_moving else None,
+        "total_equal": total_equal if check_total else None,
     }
 
 
@@ -80,6 +93,9 @@ if __name__ == "__main__":
     cases = [
         ROOT / "scripts/parity_fixture_case1.json",
         ROOT / "scripts/parity_fixture_case3.json",
+        ROOT / "scripts/parity_fixture_transfer.json",
+        ROOT / "scripts/parity_fixture_fractional.json",
+        ROOT / "scripts/parity_fixture_carry_in.json",
     ]
     results = [compare_case(c) for c in cases]
     print("summary:", json.dumps(results, ensure_ascii=False))

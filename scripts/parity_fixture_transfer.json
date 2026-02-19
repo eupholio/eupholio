@@ -1,0 +1,8 @@
+{
+  "tax_year": 2026,
+  "events": [
+    {"type":"Acquire","asset":"ETH","qty":"10","jpy_cost":"100000"},
+    {"type":"Transfer","asset":"ETH","qty":"2"},
+    {"type":"Dispose","asset":"ETH","qty":"3","jpy_proceeds":"45000"}
+  ]
+}

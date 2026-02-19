@@ -1,0 +1,8 @@
+{
+  "tax_year": 2026,
+  "events": [
+    {"type":"Acquire","asset":"BTC","qty":"0.12345678","jpy_cost":"512345.67"},
+    {"type":"Acquire","asset":"BTC","qty":"0.01000000","jpy_cost":"42000.12"},
+    {"type":"Dispose","asset":"BTC","qty":"0.05000000","jpy_proceeds":"260000.55"}
+  ]
+}

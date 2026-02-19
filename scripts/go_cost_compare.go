@@ -23,9 +23,15 @@ type Event struct {
 	JpyValue    string `json:"jpy_value"`
 }
 
+type CarryIn struct {
+	Qty  string `json:"qty"`
+	Cost string `json:"cost"`
+}
+
 type Input struct {
-	TaxYear int     `json:"tax_year"`
-	Events  []Event `json:"events"`
+	TaxYear  int                `json:"tax_year"`
+	Events   []Event            `json:"events"`
+	CarryIn  map[string]CarryIn `json:"carry_in"`
 }
 
 type Out struct {
@@ -63,9 +69,32 @@ func buildEntries(events []Event) models.EntrySlice {
 	return ret
 }
 
-func calcMAM(year int, entries models.EntrySlice) Out {
+func buildBeginningBalances(carry map[string]CarryIn, year int) models.BalanceSlice {
+	ret := models.BalanceSlice{}
+	for asset, c := range carry {
+		qty := decFromString(c.Qty)
+		cost := decFromString(c.Cost)
+		price := decimal.New(0, 0)
+		if qty.Sign() != 0 {
+			price.Quo(cost, qty)
+		}
+		ret = append(ret, &models.Balance{
+			Year:              year,
+			Currency:          asset,
+			BeginningQuantity: types.NewDecimal(qty),
+			OpenQuantity:      types.NewDecimal(decimal.New(0, 0)),
+			CloseQuantity:     types.NewDecimal(decimal.New(0, 0)),
+			Price:             types.NewDecimal(price),
+			Quantity:          types.NewDecimal(qty),
+			Profit:            types.NewDecimal(decimal.New(0, 0)),
+		})
+	}
+	return ret
+}
+
+func calcMAM(year int, begining models.BalanceSlice, entries models.EntrySlice) Out {
 	calc := mam.NewCalculator()
-	balances, err := calc.CalculateBalance(models.BalanceSlice{}, entries, year)
+	balances, err := calc.CalculateBalance(begining, entries, year)
 	if err != nil {
 		panic(err)
 	}
@@ -78,9 +107,9 @@ func calcMAM(year int, entries models.EntrySlice) Out {
 	return Out{Method: "mam", RealizedPnlJpy: profit.String(), Positions: positions}
 }
 
-func calcWAM(year int, entries models.EntrySlice) Out {
+func calcWAM(year int, begining models.BalanceSlice, entries models.EntrySlice) Out {
 	calc := wam.NewCalculator()
-	balances, err := calc.CalculateBalance(models.BalanceSlice{}, entries, year)
+	balances, err := calc.CalculateBalance(begining, entries, year)
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +128,8 @@ func main() {
 		panic(err)
 	}
 	entries := buildEntries(in.Events)
-	outs := []Out{calcMAM(in.TaxYear, entries), calcWAM(in.TaxYear, entries)}
+	begining := buildBeginningBalances(in.CarryIn, in.TaxYear)
+	outs := []Out{calcMAM(in.TaxYear, begining, entries), calcWAM(in.TaxYear, begining, entries)}
 	if err := json.NewEncoder(os.Stdout).Encode(outs); err != nil {
 		panic(err)
 	}
