@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, io::{self, Read}};
 use clap::{Parser, Subcommand};
 use eupholio_core::{
     calculate, calculate_total_average_with_carry_and_rounding,
-    config::{Config, CostMethod, RoundingPolicy},
+    config::{Config, CostMethod, RoundingPolicy, RoundingTiming},
     event::Event,
     report::{CarryIn, Report},
 };
@@ -40,6 +40,7 @@ enum ValidationCode {
     RoundingJpyScaleTooLarge,
     RoundingUnitPriceScaleTooLarge,
     RoundingQuantityScaleTooLarge,
+    RoundingPerYearUnsupportedForMovingAverage,
     EventYearMismatch,
     DuplicateEventId,
     AcquireQtyNonPositive,
@@ -64,6 +65,9 @@ impl ValidationCode {
             ValidationCode::RoundingJpyScaleTooLarge => "ROUNDING_JPY_SCALE_TOO_LARGE",
             ValidationCode::RoundingUnitPriceScaleTooLarge => "ROUNDING_UNIT_PRICE_SCALE_TOO_LARGE",
             ValidationCode::RoundingQuantityScaleTooLarge => "ROUNDING_QUANTITY_SCALE_TOO_LARGE",
+            ValidationCode::RoundingPerYearUnsupportedForMovingAverage => {
+                "ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE"
+            }
             ValidationCode::EventYearMismatch => "EVENT_YEAR_MISMATCH",
             ValidationCode::DuplicateEventId => "DUPLICATE_EVENT_ID",
             ValidationCode::AcquireQtyNonPositive => "ACQUIRE_QTY_NON_POSITIVE",
@@ -154,10 +158,21 @@ fn read_input() -> Result<Input, Box<dyn std::error::Error>> {
     Ok(input)
 }
 
+fn is_moving_average_per_year(rounding: &RoundingPolicy, method: CostMethod) -> bool {
+    method == CostMethod::MovingAverage && rounding.timing == RoundingTiming::PerYear
+}
+
 fn run(input: Input) -> Result<Report, io::Error> {
     let method = parse_method(&input.method)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
     let rounding = input.rounding.unwrap_or_default();
+
+    if is_moving_average_per_year(&rounding, method) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "rounding.timing=per_year is not supported for method=moving_average",
+        ));
+    }
 
     let report = match method {
         CostMethod::MovingAverage => calculate(
@@ -215,6 +230,19 @@ fn validate_input(input: &Input) -> ValidationResult {
         out.push_warning(
             ValidationCode::CarryInIgnoredForMoving,
             "carry_in is ignored for moving_average".to_string(),
+        );
+    }
+
+    if method.as_ref().ok() == Some(&CostMethod::MovingAverage)
+        && input
+            .rounding
+            .as_ref()
+            .is_some_and(|r| r.timing == RoundingTiming::PerYear)
+    {
+        out.push_error(
+            ValidationCode::RoundingPerYearUnsupportedForMovingAverage,
+            "rounding.timing=per_year is not supported for method=moving_average"
+                .to_string(),
         );
     }
 

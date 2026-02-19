@@ -16,6 +16,9 @@
   - `rounding.unit_price.scale > 18`
 - `ROUNDING_QUANTITY_SCALE_TOO_LARGE`
   - `rounding.quantity.scale > 18`
+- `ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE`
+  - `method=moving_average` かつ `rounding.timing=per_year`
+  - 理由: moving_average には年次締め単位の丸め点がなく、暗黙フォールバック（実質report_only相当）を避けるため明示エラーにする
 - `DUPLICATE_EVENT_ID`
   - イベントID重複
 - `ACQUIRE_QTY_NON_POSITIVE`

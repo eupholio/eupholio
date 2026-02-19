@@ -62,3 +62,7 @@
   - `realized_pnl_jpy` は assetごとに年次丸めした値を合算
   - carry-in を含む年次集計でも同様に適用
   - `compare_go_rust.py` に `per_year` fixture を追加（可視化用途）
+- 制約（明示）:
+  - `method=moving_average` では `timing=per_year` は未サポート
+  - CLI `validate` は `ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE` を error で返す
+  - CLI `calc` も同条件を入力エラーとして拒否（暗黙フォールバックなし）

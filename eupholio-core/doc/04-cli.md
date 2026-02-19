@@ -102,13 +102,19 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 - `report_only=1`, `per_year=0` は fixture (`per_year_total_difference.json`) で固定済み。
 - 同一入力で `per_event` も `0` となり、このケースでは `per_year` と同値。
 
-## validate の timing warning 挙動（現状）
+## validate/calc の timing 挙動（現状）
 
-現行CLIでは、`rounding.timing=per_event` / `per_year` を指定しても
-`ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED` は返しません（warningなし）。
+- `rounding.timing=per_event`: warningなし（実装済み）
+- `rounding.timing=per_year`:
+  - `method=total_average`: warningなし（実装済み）
+  - `method=moving_average`: `ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE` を **error** として返す
+
+`calc` も同条件（moving_average + per_year）を入力エラーとして拒否し、暗黙フォールバックはしません。
 
 - 回帰テスト: `tests/cli_e2e.rs`
   - `cli_validate_per_event_no_timing_warning`
-  - `cli_validate_per_year_no_timing_warning`
+  - `cli_validate_per_year_total_average_no_timing_warning`
+  - `cli_validate_ng_per_year_for_moving_average`
+  - `cli_calc_ng_per_year_for_moving_average`
 
 一方で、`validate` は timing 以外の warning/error（例: `EVENT_YEAR_MISMATCH`, `DUPLICATE_EVENT_ID`）は通常どおり返します。
