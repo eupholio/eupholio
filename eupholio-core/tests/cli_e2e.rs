@@ -83,7 +83,7 @@ fn cli_validate_ng_rounding_scale() {
 }
 
 #[test]
-fn cli_validate_warn_rounding_timing_not_implemented() {
+fn cli_validate_warn_rounding_timing_not_implemented_for_per_year() {
     let input = r#"{
       "method":"moving_average",
       "tax_year":2026,
@@ -91,7 +91,7 @@ fn cli_validate_warn_rounding_timing_not_implemented() {
         "currency": {"JPY": {"scale": 0, "mode": "half_up"}},
         "unit_price": {"scale": 8, "mode": "half_up"},
         "quantity": {"scale": 8, "mode": "half_up"},
-        "timing": "per_event"
+        "timing": "per_year"
       },
       "events":[
         {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"3000000","ts":"2026-01-01T00:00:00Z"}
@@ -122,4 +122,28 @@ fn cli_validate_warn_event_year_mismatch() {
         .assert()
         .success()
         .stdout(predicate::str::contains("EVENT_YEAR_MISMATCH"));
+}
+
+#[test]
+fn cli_validate_per_event_no_timing_warning() {
+    let input = r#"{
+      "method":"moving_average",
+      "tax_year":2026,
+      "rounding": {
+        "currency": {"JPY": {"scale": 0, "mode": "half_up"}},
+        "unit_price": {"scale": 8, "mode": "half_up"},
+        "quantity": {"scale": 8, "mode": "half_up"},
+        "timing": "per_event"
+      },
+      "events":[
+        {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"3000000","ts":"2026-01-01T00:00:00Z"}
+      ]
+    }"#;
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
+    cmd.arg("validate")
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED").not());
 }

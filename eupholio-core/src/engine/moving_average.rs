@@ -1,11 +1,20 @@
 use std::collections::{HashMap, HashSet};
 
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, RoundingStrategy};
 
+use crate::config::{RoundRule, RoundingMode, RoundingPolicy};
 use crate::event::{Event, TransferDirection};
 use crate::report::{Position, Report, Warning};
 
 pub fn run(events: &[Event], tax_year: i32) -> Report {
+    run_inner(events, tax_year, None)
+}
+
+pub fn run_per_event(events: &[Event], tax_year: i32, policy: &RoundingPolicy) -> Report {
+    run_inner(events, tax_year, Some(policy))
+}
+
+fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&RoundingPolicy>) -> Report {
     let mut positions: HashMap<String, Position> = HashMap::new();
     let mut realized = Decimal::ZERO;
     let mut income = Decimal::ZERO;
@@ -111,6 +120,10 @@ pub fn run(events: &[Event], tax_year: i32) -> Report {
                 }
             }
         }
+
+        if let Some(policy) = per_event_rounding {
+            apply_per_event_rounding(&mut positions, &mut realized, &mut income, policy);
+        }
     }
 
     Report {
@@ -119,5 +132,41 @@ pub fn run(events: &[Event], tax_year: i32) -> Report {
         income_jpy: income,
         yearly_summary: None,
         diagnostics,
+    }
+}
+
+fn apply_per_event_rounding(
+    positions: &mut HashMap<String, Position>,
+    realized: &mut Decimal,
+    income: &mut Decimal,
+    policy: &RoundingPolicy,
+) {
+    let jpy_rule = policy
+        .currency
+        .get("JPY")
+        .copied()
+        .unwrap_or(RoundRule {
+            scale: 0,
+            mode: RoundingMode::HalfUp,
+        });
+
+    *realized = round_by_rule(*realized, jpy_rule);
+    *income = round_by_rule(*income, jpy_rule);
+
+    for p in positions.values_mut() {
+        p.qty = round_by_rule(p.qty, policy.quantity);
+        p.avg_cost_jpy_per_unit = round_by_rule(p.avg_cost_jpy_per_unit, policy.unit_price);
+    }
+}
+
+fn round_by_rule(v: Decimal, rule: RoundRule) -> Decimal {
+    v.round_dp_with_strategy(rule.scale, to_strategy(rule.mode))
+}
+
+fn to_strategy(mode: RoundingMode) -> RoundingStrategy {
+    match mode {
+        RoundingMode::HalfUp => RoundingStrategy::MidpointAwayFromZero,
+        RoundingMode::Down => RoundingStrategy::ToZero,
+        RoundingMode::HalfEven => RoundingStrategy::MidpointNearestEven,
     }
 }

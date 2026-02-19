@@ -11,9 +11,15 @@ use report::{CarryIn, Report};
 use rust_decimal::{Decimal, RoundingStrategy};
 
 pub fn calculate(config: Config, events: &[Event]) -> Report {
-    let mut report = match config.method {
-        CostMethod::MovingAverage => engine::moving_average::run(events, config.tax_year),
-        CostMethod::TotalAverage => engine::total_average::run(events, config.tax_year),
+    let mut report = match (config.method, config.rounding.timing) {
+        (CostMethod::MovingAverage, RoundingTiming::PerEvent) => {
+            engine::moving_average::run_per_event(events, config.tax_year, &config.rounding)
+        }
+        (CostMethod::TotalAverage, RoundingTiming::PerEvent) => {
+            engine::total_average::run_per_event(events, config.tax_year, &config.rounding)
+        }
+        (CostMethod::MovingAverage, _) => engine::moving_average::run(events, config.tax_year),
+        (CostMethod::TotalAverage, _) => engine::total_average::run(events, config.tax_year),
     };
     apply_rounding(&mut report, &config.rounding);
     report
@@ -33,7 +39,11 @@ pub fn calculate_total_average_with_carry_and_rounding(
     carry_in: &HashMap<String, CarryIn>,
     rounding: RoundingPolicy,
 ) -> Report {
-    let mut report = engine::total_average::run_with_carry(events, tax_year, carry_in);
+    let mut report = if rounding.timing == RoundingTiming::PerEvent {
+        engine::total_average::run_with_carry_per_event(events, tax_year, carry_in, &rounding)
+    } else {
+        engine::total_average::run_with_carry(events, tax_year, carry_in)
+    };
     apply_rounding(&mut report, &rounding);
     report
 }

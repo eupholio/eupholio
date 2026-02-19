@@ -262,10 +262,10 @@ fn validate_input(input: &Input) -> ValidationResult {
                 "rounding.quantity.scale must be <= 18".to_string(),
             );
         }
-        if rounding.timing != RoundingTiming::ReportOnly {
+        if rounding.timing == RoundingTiming::PerYear {
             out.push_warning(
                 ValidationCode::RoundingTimingNotFullyImplemented,
-                "rounding.timing other than report_only is not fully implemented yet".to_string(),
+                "rounding.timing=per_year is not fully implemented yet".to_string(),
             );
         }
     }

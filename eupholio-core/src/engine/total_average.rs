@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, RoundingStrategy};
 
+use crate::config::{RoundRule, RoundingMode, RoundingPolicy};
 use crate::event::Event;
 use crate::report::{CarryIn, Position, Report, Warning, YearlyAssetSummary, YearlySummary};
 
@@ -32,7 +33,29 @@ pub fn run(events: &[Event], tax_year: i32) -> Report {
     run_with_carry(events, tax_year, &HashMap::new())
 }
 
+pub fn run_per_event(events: &[Event], tax_year: i32, policy: &RoundingPolicy) -> Report {
+    run_with_carry_inner(events, tax_year, &HashMap::new(), Some(policy))
+}
+
 pub fn run_with_carry(events: &[Event], tax_year: i32, carry_in: &HashMap<String, CarryIn>) -> Report {
+    run_with_carry_inner(events, tax_year, carry_in, None)
+}
+
+pub fn run_with_carry_per_event(
+    events: &[Event],
+    tax_year: i32,
+    carry_in: &HashMap<String, CarryIn>,
+    policy: &RoundingPolicy,
+) -> Report {
+    run_with_carry_inner(events, tax_year, carry_in, Some(policy))
+}
+
+fn run_with_carry_inner(
+    events: &[Event],
+    tax_year: i32,
+    carry_in: &HashMap<String, CarryIn>,
+    per_event_rounding: Option<&RoundingPolicy>,
+) -> Report {
     let mut buckets: HashMap<String, Bucket> = HashMap::new();
     let mut diagnostics = Vec::new();
     let mut income = Decimal::ZERO;
@@ -97,6 +120,10 @@ pub fn run_with_carry(events: &[Event], tax_year: i32, carry_in: &HashMap<String
             }
             Event::Transfer { .. } => {}
         }
+
+        if let Some(policy) = per_event_rounding {
+            apply_per_event_rounding(&mut buckets, &mut income, policy);
+        }
     }
 
     let mut positions = HashMap::new();
@@ -155,5 +182,43 @@ pub fn run_with_carry(events: &[Event], tax_year: i32, carry_in: &HashMap<String
         income_jpy: income,
         yearly_summary: Some(YearlySummary { tax_year, by_asset }),
         diagnostics,
+    }
+}
+
+fn apply_per_event_rounding(
+    buckets: &mut HashMap<String, Bucket>,
+    income: &mut Decimal,
+    policy: &RoundingPolicy,
+) {
+    let jpy_rule = policy
+        .currency
+        .get("JPY")
+        .copied()
+        .unwrap_or(RoundRule {
+            scale: 0,
+            mode: RoundingMode::HalfUp,
+        });
+
+    *income = round_by_rule(*income, jpy_rule);
+
+    for b in buckets.values_mut() {
+        b.carry_in_qty = round_by_rule(b.carry_in_qty, policy.quantity);
+        b.carry_in_cost = round_by_rule(b.carry_in_cost, jpy_rule);
+        b.total_acquired_qty = round_by_rule(b.total_acquired_qty, policy.quantity);
+        b.total_acquired_cost = round_by_rule(b.total_acquired_cost, jpy_rule);
+        b.total_disposed_qty = round_by_rule(b.total_disposed_qty, policy.quantity);
+        b.total_disposed_proceeds = round_by_rule(b.total_disposed_proceeds, jpy_rule);
+    }
+}
+
+fn round_by_rule(v: Decimal, rule: RoundRule) -> Decimal {
+    v.round_dp_with_strategy(rule.scale, to_strategy(rule.mode))
+}
+
+fn to_strategy(mode: RoundingMode) -> RoundingStrategy {
+    match mode {
+        RoundingMode::HalfUp => RoundingStrategy::MidpointAwayFromZero,
+        RoundingMode::Down => RoundingStrategy::ToZero,
+        RoundingMode::HalfEven => RoundingStrategy::MidpointNearestEven,
     }
 }
