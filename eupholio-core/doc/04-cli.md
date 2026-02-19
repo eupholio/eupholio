@@ -38,7 +38,7 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 }
 ```
 
-## 入力（total_average + carry_in）
+## 入力（total_average + carry_in + rounding override）
 
 ```json
 {
@@ -46,6 +46,14 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
   "tax_year": 2026,
   "carry_in": {
     "BTC": {"qty":"2","cost":"8000000"}
+  },
+  "rounding": {
+    "currency": {
+      "JPY": {"scale": 0, "mode": "half_up"}
+    },
+    "unit_price": {"scale": 8, "mode": "half_up"},
+    "quantity": {"scale": 8, "mode": "half_up"},
+    "timing": "report_only"
   },
   "events": [
     {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"6000000","ts":"2026-01-05T00:00:00Z"},

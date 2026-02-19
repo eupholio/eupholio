@@ -24,8 +24,17 @@ pub fn calculate_total_average_with_carry(
     events: &[Event],
     carry_in: &HashMap<String, CarryIn>,
 ) -> Report {
+    calculate_total_average_with_carry_and_rounding(tax_year, events, carry_in, RoundingPolicy::default())
+}
+
+pub fn calculate_total_average_with_carry_and_rounding(
+    tax_year: i32,
+    events: &[Event],
+    carry_in: &HashMap<String, CarryIn>,
+    rounding: RoundingPolicy,
+) -> Report {
     let mut report = engine::total_average::run_with_carry(events, tax_year, carry_in);
-    apply_rounding(&mut report, &RoundingPolicy::default());
+    apply_rounding(&mut report, &rounding);
     report
 }
 

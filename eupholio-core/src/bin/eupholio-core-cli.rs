@@ -2,7 +2,7 @@ use std::{collections::{HashMap, HashSet}, io::{self, Read}};
 
 use clap::{Parser, Subcommand};
 use eupholio_core::{
-    calculate, calculate_total_average_with_carry,
+    calculate, calculate_total_average_with_carry_and_rounding,
     config::{Config, CostMethod, RoundingPolicy},
     event::Event,
     report::{CarryIn, Report},
@@ -17,6 +17,8 @@ struct Input {
     events: Vec<Event>,
     #[serde(default)]
     carry_in: HashMap<String, CarryIn>,
+    #[serde(default)]
+    rounding: Option<RoundingPolicy>,
 }
 
 #[derive(Debug, Serialize)]
@@ -61,13 +63,14 @@ fn read_input() -> Result<Input, Box<dyn std::error::Error>> {
 fn run(input: Input) -> Result<Report, io::Error> {
     let method = parse_method(&input.method)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    let rounding = input.rounding.unwrap_or_default();
 
     let report = match method {
         CostMethod::MovingAverage => calculate(
             Config {
                 method,
                 tax_year: input.tax_year,
-                rounding: RoundingPolicy::default(),
+                rounding,
             },
             &input.events,
         ),
@@ -77,12 +80,17 @@ fn run(input: Input) -> Result<Report, io::Error> {
                     Config {
                         method,
                         tax_year: input.tax_year,
-                        rounding: RoundingPolicy::default(),
+                        rounding,
                     },
                     &input.events,
                 )
             } else {
-                calculate_total_average_with_carry(input.tax_year, &input.events, &input.carry_in)
+                calculate_total_average_with_carry_and_rounding(
+                    input.tax_year,
+                    &input.events,
+                    &input.carry_in,
+                    rounding,
+                )
             }
         }
     };
