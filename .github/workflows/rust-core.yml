@@ -69,7 +69,10 @@ jobs:
           echo "line coverage: ${COVERAGE}% (${LH}/${LF})"
           echo "### Rust coverage" >> "$GITHUB_STEP_SUMMARY"
           echo "- Line coverage: **${COVERAGE}%** (${LH}/${LF})" >> "$GITHUB_STEP_SUMMARY"
-          awk -v cov="$COVERAGE" 'BEGIN { exit (cov+0 >= 75.0 ? 0 : 1) }'
+          if ! awk -v cov="$COVERAGE" 'BEGIN { exit (cov+0 >= 75.0 ? 0 : 1) }'; then
+            echo "Coverage ${COVERAGE}% is below the required threshold of 75%."
+            exit 1
+          fi
 
       - name: Upload lcov artifact
         uses: actions/upload-artifact@v4
