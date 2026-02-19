@@ -29,3 +29,18 @@ fn bittrex_smoke_source_to_normalized_to_calculate() {
     let btc = report.positions.get("BTC").expect("btc position should exist");
     assert_eq!(btc.qty.to_string(), "0.0");
 }
+
+#[test]
+fn bittrex_csv_parser_handles_quoted_thousands_separator() {
+    let raw = "Uuid,Exchange,OrderType,Quantity,Price,Commission,Closed\n\
+q1,JPY-BTC,LIMIT_BUY,1,\"1,234\",10,01/01/2026 12:00:00 AM\n";
+
+    let normalized = normalize_order_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 1);
+
+    match &normalized.events[0] {
+        Event::Acquire { jpy_cost, .. } => assert_eq!(jpy_cost.to_string(), "1244"),
+        _ => panic!("expected acquire event"),
+    }
+}

@@ -1,4 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
+use csv::StringRecord;
 use eupholio_core::event::Event;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -21,18 +22,30 @@ pub struct NormalizeResult {
 }
 
 pub fn normalize_order_history_csv(raw: &str) -> Result<NormalizeResult, String> {
-    let mut lines = raw.lines().filter(|line| !line.trim().is_empty());
-    let header_line = lines.next().ok_or_else(|| "empty csv".to_string())?;
-    let headers = split_csv_line(header_line);
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(true)
+        .trim(csv::Trim::All)
+        .from_reader(raw.as_bytes());
+
+    let headers = rdr
+        .headers()
+        .map_err(|e| format!("invalid csv header: {}", e))?
+        .clone();
     let header_index = build_header_index(&headers);
 
     let mut events = Vec::new();
     let mut diagnostics = Vec::new();
 
-    for (i, line) in lines.enumerate() {
+    for (i, result) in rdr.records().enumerate() {
         let row = i + 2;
-        let cols = split_csv_line(line);
-        match map_row_to_event(&header_index, &cols) {
+        let record = result.map_err(|e| format!("row {}: invalid csv row: {}", row, e))?;
+
+        // Skip physically empty rows.
+        if record.iter().all(|v| v.trim().is_empty()) {
+            continue;
+        }
+
+        match map_row_to_event(&header_index, &record) {
             Ok(Some(event)) => events.push(event),
             Ok(None) => diagnostics.push(NormalizeDiagnostic {
                 row,
@@ -50,7 +63,7 @@ pub fn normalize_order_history_csv(raw: &str) -> Result<NormalizeResult, String>
     })
 }
 
-fn map_row_to_event(index: &HashMap<&str, usize>, row: &[String]) -> Result<Option<Event>, String> {
+fn map_row_to_event(index: &HashMap<String, usize>, row: &StringRecord) -> Result<Option<Event>, String> {
     let id = get(index, row, "Uuid")?;
     let exchange = get(index, row, "Exchange")?;
     let order_type = get(index, row, "OrderType")?;
@@ -82,20 +95,20 @@ fn map_row_to_event(index: &HashMap<&str, usize>, row: &[String]) -> Result<Opti
     Ok(Some(event))
 }
 
-fn build_header_index(headers: &[String]) -> HashMap<&str, usize> {
-    let mut map = HashMap::new();
-    for (i, col) in headers.iter().enumerate() {
-        map.insert(col.as_str(), i);
-    }
-    map
+fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {
+    headers
+        .iter()
+        .enumerate()
+        .map(|(i, col)| (col.to_string(), i))
+        .collect()
 }
 
-fn get<'a>(index: &HashMap<&str, usize>, row: &'a [String], key: &str) -> Result<&'a str, String> {
+fn get<'a>(index: &HashMap<String, usize>, row: &'a StringRecord, key: &str) -> Result<&'a str, String> {
     let i = *index
         .get(key)
         .ok_or_else(|| format!("missing required header {}", key))?;
     row.get(i)
-        .map(|s| s.as_str())
+        .map(str::trim)
         .ok_or_else(|| format!("missing required field {}", key))
 }
 
@@ -118,8 +131,4 @@ fn split_exchange(s: &str) -> Result<(&str, &str), String> {
         return Err(format!("invalid exchange pair '{}'", s));
     }
     Ok((payment, trading))
-}
-
-fn split_csv_line(line: &str) -> Vec<String> {
-    line.split(',').map(|s| s.trim().to_string()).collect()
 }
