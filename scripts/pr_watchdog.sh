@@ -9,6 +9,13 @@ STATE_FILE="${STATE_FILE:-$WORKSPACE_ROOT/memory/pr-watchdog-state.json}"
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
+for cmd in gh jq; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Missing required command: $cmd" >&2
+    exit 1
+  fi
+done
+
 mkdir -p "$(dirname "$STATE_FILE")"
 if [[ ! -f "$STATE_FILE" ]] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
   echo '{"prs":{}}' > "$STATE_FILE"
@@ -19,15 +26,23 @@ warn_once() { WARN=1; }
 
 count_unresolved_threads() {
   local pr_number="$1"
-  local after="null"
+  local after=""
   local total=0
 
   while :; do
     local page
-    if ! page=$(gh api graphql \
-      -f query='query($owner:String!, $name:String!, $number:Int!, $after:String){ repository(owner:$owner, name:$name){ pullRequest(number:$number){ reviewThreads(first:100, after:$after){ nodes{ isResolved } pageInfo{ hasNextPage endCursor } } } } }' \
-      -F owner="$OWNER" -F name="$NAME" -F number="$pr_number" -F after="$after" 2>/dev/null); then
-      return 1
+    if [[ -z "$after" ]]; then
+      if ! page=$(gh api graphql \
+        -f query='query($owner:String!, $name:String!, $number:Int!){ repository(owner:$owner, name:$name){ pullRequest(number:$number){ reviewThreads(first:100){ nodes{ isResolved } pageInfo{ hasNextPage endCursor } } } } }' \
+        -F owner="$OWNER" -F name="$NAME" -F number="$pr_number" 2>/dev/null); then
+        return 1
+      fi
+    else
+      if ! page=$(gh api graphql \
+        -f query='query($owner:String!, $name:String!, $number:Int!, $after:String){ repository(owner:$owner, name:$name){ pullRequest(number:$number){ reviewThreads(first:100, after:$after){ nodes{ isResolved } pageInfo{ hasNextPage endCursor } } } } }' \
+        -F owner="$OWNER" -F name="$NAME" -F number="$pr_number" -F after="$after" 2>/dev/null); then
+        return 1
+      fi
     fi
 
     local page_unresolved
