@@ -32,12 +32,6 @@ trait Normalizer {
 
 In actual implementation, this does not need to be fixed as a trait; CLI/adapter-level implementations are also acceptable.
 
-## Target Exchanges (Expected)
-
-- bitFlyer
-- Coinbase
-- SBI VC Trade
-
 ## Validation
 
 Normalizer outputs must always pass through `eupholio-core-cli validate`.
