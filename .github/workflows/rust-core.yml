@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'eupholio-core/**'
+      - 'eupholio-normalizer/**'
       - 'scripts/compare_go_rust.py'
       - 'scripts/go_cost_compare.go'
       - 'scripts/check_validation_codes.py'
@@ -13,7 +16,10 @@ on:
       - '.github/workflows/rust-core.yml'
   pull_request:
     paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - 'eupholio-core/**'
+      - 'eupholio-normalizer/**'
       - 'scripts/compare_go_rust.py'
       - 'scripts/go_cost_compare.go'
       - 'scripts/check_validation_codes.py'
@@ -32,9 +38,30 @@ jobs:
       - name: Check validation code documentation sync
         run: scripts/check_validation_codes.py
 
-      - name: Cargo test
-        working-directory: eupholio-core
-        run: cargo test --all-targets
+      - name: Cargo test (workspace)
+        run: cargo test --workspace --all-targets
+
+  rust-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate coverage (workspace)
+        run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+
+      - name: Upload lcov artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-lcov
+          path: lcov.info
 
   parity-go-rust:
     runs-on: ubuntu-latest
