@@ -1,11 +1,11 @@
 # Validation Codes
 
-`eupholio-core-cli validate` が返す `issues[].code` 一覧。
+List of `issues[].code` values returned by `eupholio-core-cli validate`.
 
 ## Error codes
 
 - `INVALID_METHOD`
-  - `method` が `moving_average` / `total_average` 以外
+  - `method` is neither `moving_average` nor `total_average`
 - `NEGATIVE_CARRY_IN_QTY`
   - `carry_in.<asset>.qty < 0`
 - `NEGATIVE_CARRY_IN_COST`
@@ -17,46 +17,46 @@
 - `ROUNDING_QUANTITY_SCALE_TOO_LARGE`
   - `rounding.quantity.scale > 18`
 - `ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE`
-  - `method=moving_average` かつ `rounding.timing=per_year`
-  - 理由: moving_average には年次締め単位の丸め点がなく、暗黙フォールバック（実質report_only相当）を避けるため明示エラーにする
+  - `method=moving_average` and `rounding.timing=per_year`
+  - Reason: moving_average has no annual-closing rounding point; this is an explicit error to avoid implicit fallback (effectively equivalent to report_only)
 - `DUPLICATE_EVENT_ID`
-  - イベントID重複
+  - Duplicate event IDs
 - `ACQUIRE_QTY_NON_POSITIVE`
-  - Acquireのqtyが0以下
+  - Acquire qty is 0 or less
 - `ACQUIRE_COST_NEGATIVE`
-  - Acquireのjpy_costが負
+  - Acquire `jpy_cost` is negative
 - `DISPOSE_QTY_NON_POSITIVE`
-  - Disposeのqtyが0以下
+  - Dispose qty is 0 or less
 - `DISPOSE_PROCEEDS_NEGATIVE`
-  - Disposeのjpy_proceedsが負
+  - Dispose `jpy_proceeds` is negative
 - `INCOME_QTY_NON_POSITIVE`
-  - Incomeのqtyが0以下
+  - Income qty is 0 or less
 - `INCOME_VALUE_NEGATIVE`
-  - Incomeのjpy_valueが負
+  - Income `jpy_value` is negative
 - `TRANSFER_QTY_NON_POSITIVE`
-  - Transferのqtyが0以下
+  - Transfer qty is 0 or less
 
 ## Warning codes
 
 - `EMPTY_EVENTS`
-  - eventsが空
+  - `events` is empty
 - `UNUSUAL_TAX_YEAR`
-  - tax_yearが通常範囲外
+  - `tax_year` is outside the typical range
 - `CARRY_IN_IGNORED_FOR_MOVING`
-  - moving_averageでcarry_in指定（現在無視）
+  - `carry_in` is specified with moving_average (currently ignored)
 - `CARRY_IN_COST_WITH_ZERO_QTY`
-  - qty=0でcost>0
+  - cost > 0 while qty=0
 - `EVENT_YEAR_MISMATCH`
-  - `event.ts` の年が `tax_year` と不一致
+  - Year of `event.ts` does not match `tax_year`
 
-## ドキュメント整合性チェック
+## Documentation Consistency Check
 
-- 実装 (`eupholio-core/src/bin/eupholio-core-cli.rs`) と本ドキュメントの `code` 一覧は CI で自動検証される
-- 検証スクリプト: `scripts/check_validation_codes.py`
-- どちらか一方だけ変更すると `rust-core` workflow が失敗するため、必ず同時に更新する
+- The `code` list in implementation (`eupholio-core/src/bin/eupholio-core-cli.rs`) and this document is automatically verified in CI
+- Verification script: `scripts/check_validation_codes.py`
+- If only one side is changed, the `rust-core` workflow fails, so always update both together
 
-## 運用指針
+## Operational Guidelines
 
-- `ok=false` の場合は計算実行しない
-- warningのみなら実行可能だが、ログとして保存
-- 自動処理では `code` をキーに分岐し、`message` は人向け表示に使う
+- If `ok=false`, do not execute calculation
+- If only warnings exist, execution is allowed, but keep them in logs
+- In automated processing, branch by `code` as the key, and use `message` for human-readable display

@@ -1,28 +1,28 @@
 # Normalizer Interface (Draft)
 
-目的: 取引所ごとの差分を `eupholio-core` の外側で吸収し、コアには正規化済みEventのみを渡す。
+Objective: absorb exchange-specific differences outside `eupholio-core`, and pass only normalized Events into the core.
 
-## レイヤ分離
+## Layer Separation
 
-- Normalizer層: CSV/API入力 -> 正規化Event
-- Core層: Event -> 損益計算
+- Normalizer layer: CSV/API input -> normalized Event
+- Core layer: Event -> PnL calculation
 
-## Normalizerの責務
+## Normalizer Responsibilities
 
-1. 取引所固有フォーマットの解析
-2. 手数料込み/差引後JPY値の確定
-3. crypto-cryptoを Acquire + Dispose へ分解
-4. Event ID の一意化
-5. タイムゾーン正規化（UTC）
+1. Parse exchange-specific formats
+2. Determine JPY values including fees / net of fees
+3. Split crypto-crypto transactions into Acquire + Dispose
+4. Ensure Event ID uniqueness
+5. Normalize timezone (UTC)
 
-## Coreへ渡す契約
+## Contract Passed to Core
 
-- `Event::Acquire` は `jpy_cost`（手数料込み）
-- `Event::Dispose` は `jpy_proceeds`（手数料差引後）
-- `Event::Income` は `jpy_value`
-- `Transfer` は損益を発生させない移動情報
+- `Event::Acquire` uses `jpy_cost` (fee-inclusive)
+- `Event::Dispose` uses `jpy_proceeds` (fee-deducted)
+- `Event::Income` uses `jpy_value`
+- `Transfer` carries movement data that must not generate PnL
 
-## 推奨I/F（概念）
+## Recommended I/F (Concept)
 
 ```rust
 trait Normalizer {
@@ -30,14 +30,14 @@ trait Normalizer {
 }
 ```
 
-実装では trait 固定にせず、CLI/アダプタ単位でも可。
+In actual implementation, this does not need to be fixed as a trait; CLI/adapter-level implementations are also acceptable.
 
-## 対象取引所（想定）
+## Target Exchanges (Expected)
 
 - bitFlyer
 - Coinbase
 - SBI VC Trade
 
-## バリデーション
+## Validation
 
-Normalizer出力は `eupholio-core-cli validate` を必ず通す。
+Normalizer outputs must always pass through `eupholio-core-cli validate`.
