@@ -12,7 +12,6 @@ Implemented:
 - Go vs Rust parity scripts
 
 Not yet fully implemented:
-- rounding timing: `per_event`, `per_year` (currently warning)
 - exchange-specific normalizers
 
 ## Quickstart
