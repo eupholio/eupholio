@@ -10,3 +10,5 @@ Documentation for source-specific normalization into `eupholio-core::event::Even
   - Candidate selection notes for the next live-source adapter
 - [18-go-rust-migration-plan.md](./18-go-rust-migration-plan.md)
   - Staged migration/rollback plan from Go path to Rust path
+- [19-normalizer-coincheck-trade-history-mapping.md](./19-normalizer-coincheck-trade-history-mapping.md)
+  - Concrete phase-2 mapping for Coincheck trade history CSV (Acquire/Dispose scope)

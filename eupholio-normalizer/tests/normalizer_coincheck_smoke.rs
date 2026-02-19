@@ -1,0 +1,88 @@
+use eupholio_core::config::{Config, CostMethod};
+use eupholio_core::event::Event;
+use eupholio_normalizer::coincheck::normalize_trade_history_csv;
+
+#[test]
+fn coincheck_smoke_source_to_normalized_to_calculate() {
+    let raw = include_str!("fixtures/normalizer/coincheck_history_smoke.csv");
+    let expected_raw = include_str!("fixtures/normalizer/coincheck_history_smoke.normalized.json");
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert_eq!(normalized.diagnostics.len(), 2, "unsupported rows are diagnosed");
+    assert_eq!(normalized.diagnostics[0].row, 2);
+    assert_eq!(
+        normalized.diagnostics[0].reason,
+        "unsupported operation: operation='Received', id='cc-000'"
+    );
+    assert_eq!(normalized.diagnostics[1].row, 5);
+    assert_eq!(
+        normalized.diagnostics[1].reason,
+        "unsupported operation: operation='Sent', id='cc-999'"
+    );
+
+    let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
+    assert_eq!(normalized.events, expected, "normalized output should match fixture");
+
+    let report = eupholio_core::calculate(
+        Config {
+            method: CostMethod::MovingAverage,
+            tax_year: 2026,
+            rounding: Default::default(),
+        },
+        &normalized.events,
+    );
+
+    assert_eq!(report.realized_pnl_jpy.to_string(), "198800");
+    assert_eq!(report.positions.len(), 1);
+    let btc = report.positions.get("BTC").expect("btc position should exist");
+    assert_eq!(btc.qty.to_string(), "0.0");
+}
+
+#[test]
+fn coincheck_parser_handles_commas_and_blank_fee() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc1,2026-01-01 00:00:00 +0900,Completed trading contracts,\"1,000\",JPY,,,,\"Rate: 10000.0, Pair: btc_jpy\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 1);
+
+    match &normalized.events[0] {
+        Event::Dispose {
+            qty,
+            jpy_proceeds,
+            ..
+        } => {
+            assert_eq!(qty.to_string(), "0.1");
+            assert_eq!(jpy_proceeds.to_string(), "1000");
+        }
+        _ => panic!("expected dispose event"),
+    }
+}
+
+#[test]
+fn coincheck_normalizer_errors_on_missing_required_header_and_invalid_rows() {
+    let missing_header = "id,time,operation,amount,trading_currency,price,original_currency,fee\n\
+cc1,2026-01-01 00:00:00 +0900,Completed trading contracts,1,BTC,,,0\n";
+    assert!(normalize_trade_history_csv(missing_header)
+        .expect_err("missing header should fail")
+        .contains("missing required header comment"));
+
+    let bad_comment = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc2,2026-01-01 00:00:00 +0900,Completed trading contracts,1,BTC,,,0,broken\n";
+    assert!(normalize_trade_history_csv(bad_comment)
+        .expect_err("bad comment should fail")
+        .contains("failed to parse comment"));
+
+    let non_jpy = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc3,2026-01-01 00:00:00 +0900,Completed trading contracts,1,BTC,,,0,\"Rate: 10000.0, Pair: btc_usd\"\n";
+    assert!(normalize_trade_history_csv(non_jpy)
+        .expect_err("non-JPY should fail")
+        .contains("only JPY is supported"));
+
+    let invalid_currency = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc4,2026-01-01 00:00:00 +0900,Completed trading contracts,1,ETH,,,0,\"Rate: 10000.0, Pair: btc_jpy\"\n";
+    assert!(normalize_trade_history_csv(invalid_currency)
+        .expect_err("invalid trading currency should fail")
+        .contains("invalid trading currency"));
+}
