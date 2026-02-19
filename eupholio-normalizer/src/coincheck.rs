@@ -32,6 +32,17 @@ enum RowOutcome {
     Unsupported(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OperationKind {
+    Trade,
+    Transfer {
+        direction: TransferDirection,
+        is_fiat: bool,
+        id_suffix: &'static str,
+    },
+    Unsupported,
+}
+
 pub fn normalize_trade_history_csv(raw: &str) -> Result<NormalizeResult, String> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -76,57 +87,42 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
     let trading_currency = get(index, row, "trading_currency")?.to_ascii_uppercase();
     let ts = parse_datetime(get(index, row, "time")?)?;
 
-    if operation == OP_RECEIVED
-        || operation == OP_SENT
-        || operation == OP_DEPOSIT
-        || operation == OP_WITHDRAWAL
-    {
-        if amount <= Decimal::ZERO {
-            return Err(format!("transfer qty must be > 0, got {}", amount));
+    match operation_kind(operation) {
+        OperationKind::Transfer {
+            direction,
+            is_fiat,
+            id_suffix,
+        } => {
+            if amount <= Decimal::ZERO {
+                return Err(format!("transfer qty must be > 0, got {}", amount));
+            }
+
+            if is_fiat && trading_currency != "JPY" {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported fiat transfer currency: operation='{}', trading_currency='{}', id='{}'",
+                    sanitize_diagnostic_value(operation),
+                    sanitize_diagnostic_value(&trading_currency),
+                    sanitize_diagnostic_value(id)
+                )));
+            }
+
+            return Ok(RowOutcome::Event(Event::Transfer {
+                id: format!("{}:{}", id, id_suffix),
+                asset: trading_currency,
+                qty: amount,
+                direction,
+                ts,
+            }));
         }
-
-        let is_inbound = operation == OP_RECEIVED || operation == OP_DEPOSIT;
-        let is_fiat = operation == OP_DEPOSIT || operation == OP_WITHDRAWAL;
-
-        if is_fiat && trading_currency != "JPY" {
+        OperationKind::Unsupported => {
             return Ok(RowOutcome::Unsupported(format!(
-                "unsupported fiat transfer currency: operation='{}', trading_currency='{}', id='{}'",
+                "unsupported operation: operation='{}', trading_currency='{}', id='{}'",
                 sanitize_diagnostic_value(operation),
                 sanitize_diagnostic_value(&trading_currency),
                 sanitize_diagnostic_value(id)
             )));
         }
-
-        let direction = if is_inbound {
-            TransferDirection::In
-        } else {
-            TransferDirection::Out
-        };
-
-        let suffix = match operation {
-            OP_RECEIVED => "transfer_in",
-            OP_SENT => "transfer_out",
-            OP_DEPOSIT => "fiat_transfer_in",
-            OP_WITHDRAWAL => "fiat_transfer_out",
-            _ => unreachable!("filtered above"),
-        };
-
-        return Ok(RowOutcome::Event(Event::Transfer {
-            id: format!("{}:{}", id, suffix),
-            asset: trading_currency,
-            qty: amount,
-            direction,
-            ts,
-        }));
-    }
-
-    if operation != OP_COMPLETED_TRADING_CONTRACTS {
-        return Ok(RowOutcome::Unsupported(format!(
-            "unsupported operation: operation='{}', trading_currency='{}', id='{}'",
-            sanitize_diagnostic_value(operation),
-            sanitize_diagnostic_value(&trading_currency),
-            sanitize_diagnostic_value(id)
-        )));
+        OperationKind::Trade => {}
     }
 
     let fee = parse_optional_decimal(get(index, row, "fee")?)?.unwrap_or(Decimal::ZERO);
@@ -167,6 +163,33 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
     };
 
     Ok(RowOutcome::Event(event))
+}
+
+fn operation_kind(operation: &str) -> OperationKind {
+    match operation {
+        OP_COMPLETED_TRADING_CONTRACTS => OperationKind::Trade,
+        OP_RECEIVED => OperationKind::Transfer {
+            direction: TransferDirection::In,
+            is_fiat: false,
+            id_suffix: "transfer_in",
+        },
+        OP_SENT => OperationKind::Transfer {
+            direction: TransferDirection::Out,
+            is_fiat: false,
+            id_suffix: "transfer_out",
+        },
+        OP_DEPOSIT => OperationKind::Transfer {
+            direction: TransferDirection::In,
+            is_fiat: true,
+            id_suffix: "fiat_transfer_in",
+        },
+        OP_WITHDRAWAL => OperationKind::Transfer {
+            direction: TransferDirection::Out,
+            is_fiat: true,
+            id_suffix: "fiat_transfer_out",
+        },
+        _ => OperationKind::Unsupported,
+    }
 }
 
 fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {
