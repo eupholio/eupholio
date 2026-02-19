@@ -24,3 +24,7 @@ This directory contains design and operational documentation for `eupholio-core`
   - List of issue codes returned by `validate`
 - [10-pr-prep-core-rs.md](./10-pr-prep-core-rs.md)
   - PR preparation notes for merging core-rs into main
+- [11-pr-ready-summary-core-rs.md](./11-pr-ready-summary-core-rs.md)
+  - Collected summary for PR readiness checkpoints
+- [12-dev-workflows.md](./12-dev-workflows.md)
+  - Reusable development and review loops

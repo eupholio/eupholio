@@ -37,6 +37,10 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
             continue;
         }
 
+        let mut touched_asset: Option<&str> = None;
+        let mut round_realized = false;
+        let mut round_income = false;
+
         match e {
             Event::Acquire {
                 asset,
@@ -44,6 +48,7 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 jpy_cost,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
                     avg_cost_jpy_per_unit: Decimal::ZERO,
@@ -65,6 +70,8 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 jpy_proceeds,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
+                round_realized = true;
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
                     avg_cost_jpy_per_unit: Decimal::ZERO,
@@ -84,6 +91,8 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 jpy_value,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
+                round_income = true;
                 income += *jpy_value;
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
@@ -106,6 +115,7 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
                 direction,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
                 let p = positions.entry(asset.clone()).or_insert(Position {
                     qty: Decimal::ZERO,
                     avg_cost_jpy_per_unit: Decimal::ZERO,
@@ -123,7 +133,15 @@ fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&Roundi
         }
 
         if let Some(policy) = per_event_rounding {
-            apply_per_event_rounding(&mut positions, &mut realized, &mut income, policy);
+            apply_per_event_rounding(
+                &mut positions,
+                &mut realized,
+                &mut income,
+                policy,
+                touched_asset,
+                round_realized,
+                round_income,
+            );
         }
     }
 
@@ -141,6 +159,9 @@ fn apply_per_event_rounding(
     realized: &mut Decimal,
     income: &mut Decimal,
     policy: &RoundingPolicy,
+    touched_asset: Option<&str>,
+    round_realized: bool,
+    round_income: bool,
 ) {
     let jpy_rule = policy
         .currency
@@ -151,10 +172,14 @@ fn apply_per_event_rounding(
             mode: RoundingMode::HalfUp,
         });
 
-    *realized = round_by_rule(*realized, jpy_rule);
-    *income = round_by_rule(*income, jpy_rule);
+    if round_realized {
+        *realized = round_by_rule(*realized, jpy_rule);
+    }
+    if round_income {
+        *income = round_by_rule(*income, jpy_rule);
+    }
 
-    for p in positions.values_mut() {
+    if let Some(p) = touched_asset.and_then(|asset| positions.get_mut(asset)) {
         p.qty = round_by_rule(p.qty, policy.quantity);
         p.avg_cost_jpy_per_unit = round_by_rule(p.avg_cost_jpy_per_unit, policy.unit_price);
     }

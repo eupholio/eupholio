@@ -79,6 +79,20 @@ fn run_with_carry_inner(
         let b = buckets.entry(asset.clone()).or_insert_with(Bucket::new);
         b.carry_in_qty = c.qty;
         b.carry_in_cost = c.cost;
+
+        if let Some(policy) = per_event_rounding {
+            let jpy_rule = policy
+                .currency
+                .get("JPY")
+                .copied()
+                .unwrap_or(RoundRule {
+                    scale: 0,
+                    mode: RoundingMode::HalfUp,
+                });
+            b.carry_in_qty = round_by_rule(b.carry_in_qty, policy.quantity);
+            b.carry_in_cost = round_by_rule(b.carry_in_cost, jpy_rule);
+        }
+
         diagnostics.push(Warning::YearBoundaryCarry {
             asset: asset.clone(),
         });
@@ -100,6 +114,9 @@ fn run_with_carry_inner(
             continue;
         }
 
+        let mut touched_asset: Option<&str> = None;
+        let mut round_income = false;
+
         match e {
             Event::Acquire {
                 asset,
@@ -107,6 +124,7 @@ fn run_with_carry_inner(
                 jpy_cost,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
                 let b = buckets.entry(asset.clone()).or_insert_with(Bucket::new);
                 b.total_acquired_qty += *qty;
                 b.total_acquired_cost += *jpy_cost;
@@ -117,6 +135,7 @@ fn run_with_carry_inner(
                 jpy_proceeds,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
                 let b = buckets.entry(asset.clone()).or_insert_with(Bucket::new);
                 b.total_disposed_qty += *qty;
                 b.total_disposed_proceeds += *jpy_proceeds;
@@ -127,6 +146,8 @@ fn run_with_carry_inner(
                 jpy_value,
                 ..
             } => {
+                touched_asset = Some(asset.as_str());
+                round_income = true;
                 income += *jpy_value;
                 let b = buckets.entry(asset.clone()).or_insert_with(Bucket::new);
                 b.total_acquired_qty += *qty;
@@ -136,7 +157,7 @@ fn run_with_carry_inner(
         }
 
         if let Some(policy) = per_event_rounding {
-            apply_per_event_rounding(&mut buckets, &mut income, policy);
+            apply_per_event_rounding(&mut buckets, &mut income, policy, touched_asset, round_income);
         }
     }
 
@@ -218,6 +239,8 @@ fn apply_per_event_rounding(
     buckets: &mut HashMap<String, Bucket>,
     income: &mut Decimal,
     policy: &RoundingPolicy,
+    touched_asset: Option<&str>,
+    round_income: bool,
 ) {
     let jpy_rule = policy
         .currency
@@ -228,9 +251,11 @@ fn apply_per_event_rounding(
             mode: RoundingMode::HalfUp,
         });
 
-    *income = round_by_rule(*income, jpy_rule);
+    if round_income {
+        *income = round_by_rule(*income, jpy_rule);
+    }
 
-    for b in buckets.values_mut() {
+    if let Some(b) = touched_asset.and_then(|asset| buckets.get_mut(asset)) {
         b.carry_in_qty = round_by_rule(b.carry_in_qty, policy.quantity);
         b.carry_in_cost = round_by_rule(b.carry_in_cost, jpy_rule);
         b.total_acquired_qty = round_by_rule(b.total_acquired_qty, policy.quantity);
