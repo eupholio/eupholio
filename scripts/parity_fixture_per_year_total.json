@@ -1,0 +1,21 @@
+{
+  "tax_year": 2026,
+  "rounding": {
+    "currency": {"JPY": {"scale": 0, "mode": "half_up"}},
+    "unit_price": {"scale": 8, "mode": "half_up"},
+    "quantity": {"scale": 8, "mode": "half_up"},
+    "timing": "per_year"
+  },
+  "events": [
+    {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"100","ts":"2026-01-01T00:00:00Z"},
+    {"type":"Dispose","id":"d1","asset":"BTC","qty":"1","jpy_proceeds":"100.49","ts":"2026-01-02T00:00:00Z"},
+    {"type":"Acquire","id":"a2","asset":"ETH","qty":"1","jpy_cost":"100","ts":"2026-01-03T00:00:00Z"},
+    {"type":"Dispose","id":"d2","asset":"ETH","qty":"1","jpy_proceeds":"100.49","ts":"2026-01-04T00:00:00Z"}
+  ],
+  "expectation": {
+    "total_realized_pnl_jpy": "0"
+  },
+  "check_moving": false,
+  "check_total": false,
+  "note": "Per-year rounding fixture with strict Rust expected values."
+}
