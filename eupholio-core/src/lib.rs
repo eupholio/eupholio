@@ -11,6 +11,8 @@ use report::{CarryIn, Report};
 use rust_decimal::{Decimal, RoundingStrategy};
 
 pub fn calculate(config: Config, events: &[Event]) -> Report {
+    let mut effective_rounding = config.rounding.clone();
+
     let mut report = match (config.method, config.rounding.timing) {
         (CostMethod::MovingAverage, RoundingTiming::PerEvent) => {
             engine::moving_average::run_per_event(events, config.tax_year, &config.rounding)
@@ -21,10 +23,17 @@ pub fn calculate(config: Config, events: &[Event]) -> Report {
         (CostMethod::TotalAverage, RoundingTiming::PerYear) => {
             engine::total_average::run_per_year(events, config.tax_year, &config.rounding)
         }
+        (CostMethod::MovingAverage, RoundingTiming::PerYear) => {
+            // moving_average + per_year is unsupported in CLI validation.
+            // Keep library behavior deterministic: fall back to report-only rounding
+            // instead of producing unrounded output.
+            effective_rounding.timing = RoundingTiming::ReportOnly;
+            engine::moving_average::run(events, config.tax_year)
+        }
         (CostMethod::MovingAverage, _) => engine::moving_average::run(events, config.tax_year),
         (CostMethod::TotalAverage, _) => engine::total_average::run(events, config.tax_year),
     };
-    apply_rounding(&mut report, &config.rounding);
+    apply_rounding(&mut report, &effective_rounding);
     report
 }
 

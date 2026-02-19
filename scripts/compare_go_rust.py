@@ -85,27 +85,6 @@ def pick(go_outs, method):
     raise RuntimeError("method not found")
 
 
-def check_expectation(expectation, rust_m, rust_t):
-    if not expectation:
-        return None, None
-
-    moving_expected = expectation.get("moving_realized_pnl_jpy")
-    total_expected = expectation.get("total_realized_pnl_jpy")
-
-    moving_ok = (
-        approx_equal(rust_m["realized_pnl_jpy"], moving_expected)
-        if moving_expected is not None
-        else None
-    )
-    total_ok = (
-        approx_equal(rust_t["realized_pnl_jpy"], total_expected)
-        if total_expected is not None
-        else None
-    )
-
-    return moving_ok, total_ok
-
-
 def compare_case(path):
     fixture = json.loads(path.read_text())
     go_outs = run_go(fixture)
