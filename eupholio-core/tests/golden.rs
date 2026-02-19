@@ -172,8 +172,8 @@ fn case4_total_average_with_carry_in() {
     let report = calculate_total_average_with_carry(2026, &events, &carry_in);
 
     // avg = (8,000,000 + 6,000,000) / (2 + 1) = 4,666,666.666...
-    // realized = 7,000,000 - 1 * avg
-    assert!(report.realized_pnl_jpy > dec!(2333333));
-    assert!(report.realized_pnl_jpy < dec!(2333334));
+    // realized raw = 7,000,000 - 1 * avg = 2,333,333.333...
+    // report_only + JPY(0桁, half_up) で 2,333,333 へ丸め
+    assert_eq!(report.realized_pnl_jpy, dec!(2333333));
     assert_eq!(report.positions["BTC"].qty, dec!(2));
 }

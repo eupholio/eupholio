@@ -55,6 +55,10 @@ def approx_equal(a, b, eps=Decimal("0.000000001")):
     return abs(Decimal(str(a)) - Decimal(str(b))) <= eps
 
 
+def jp_report_round(v):
+    return Decimal(str(v)).quantize(Decimal("1"))
+
+
 def pick(go_outs, method):
     key = "mam" if method == "moving_average" else "wam"
     for o in go_outs:
@@ -79,8 +83,8 @@ def compare_case(path):
     check_moving = fixture.get("check_moving", True)
     check_total = fixture.get("check_total", True)
 
-    moving_equal = approx_equal(go_m["realized_pnl_jpy"], rust_m["realized_pnl_jpy"])
-    total_equal = approx_equal(go_t["realized_pnl_jpy"], rust_t["realized_pnl_jpy"])
+    moving_equal = approx_equal(jp_report_round(go_m["realized_pnl_jpy"]), rust_m["realized_pnl_jpy"])
+    total_equal = approx_equal(jp_report_round(go_t["realized_pnl_jpy"]), rust_t["realized_pnl_jpy"])
 
     return {
         "case": path.name,
