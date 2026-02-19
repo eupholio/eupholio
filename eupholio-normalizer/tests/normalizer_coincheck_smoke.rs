@@ -86,3 +86,30 @@ cc4,2026-01-01 00:00:00 +0900,Completed trading contracts,1,ETH,,,0,\"Rate: 1000
         .expect_err("invalid trading currency should fail")
         .contains("invalid trading currency"));
 }
+
+#[test]
+fn coincheck_fee_parse_error_is_reported() {
+    let bad_fee = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc5,2026-01-01 00:00:00 +0900,Completed trading contracts,1,BTC,,,not-a-number,\"Rate: 10000.0, Pair: btc_jpy\"\n";
+
+    assert!(normalize_trade_history_csv(bad_fee)
+        .expect_err("invalid fee should fail")
+        .contains("invalid decimal"));
+}
+
+#[test]
+fn coincheck_timestamp_timezone_crosses_tax_year_boundary() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc6,2025-12-31 23:30:00 -0900,Completed trading contracts,1000,JPY,,,0,\"Rate: 10000.0, Pair: btc_jpy\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 1);
+
+    match &normalized.events[0] {
+        Event::Dispose { ts, .. } => {
+            assert_eq!(ts.to_rfc3339(), "2026-01-01T08:30:00+00:00");
+        }
+        _ => panic!("expected dispose event"),
+    }
+}
