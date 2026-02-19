@@ -10,7 +10,10 @@ fn bittrex_smoke_source_to_normalized_to_calculate() {
     let normalized = normalize_order_history_csv(raw).expect("normalization should succeed");
     assert_eq!(normalized.diagnostics.len(), 1, "unsupported rows are diagnosed");
     assert_eq!(normalized.diagnostics[0].row, 4);
-    assert_eq!(normalized.diagnostics[0].reason, "unsupported order type");
+    assert_eq!(
+        normalized.diagnostics[0].reason,
+        "unsupported order type: OrderType='UNKNOWN', Uuid='skip-001'"
+    );
 
     let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
     assert_eq!(normalized.events, expected, "normalized output should match fixture");
@@ -43,4 +46,13 @@ q1,JPY-BTC,LIMIT_BUY,1,\"1,234\",10,01/01/2026 12:00:00 AM\n";
         Event::Acquire { jpy_cost, .. } => assert_eq!(jpy_cost.to_string(), "1244"),
         _ => panic!("expected acquire event"),
     }
+}
+
+#[test]
+fn bittrex_normalizer_errors_on_missing_required_header() {
+    let raw = "Uuid,Exchange,OrderType,Quantity,Price,Commission\n\
+q1,JPY-BTC,LIMIT_BUY,1,100,1\n";
+
+    let err = normalize_order_history_csv(raw).expect_err("missing header should fail");
+    assert!(err.contains("missing required header Closed"));
 }

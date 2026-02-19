@@ -47,10 +47,27 @@ pub fn normalize_order_history_csv(raw: &str) -> Result<NormalizeResult, String>
 
         match map_row_to_event(&header_index, &record) {
             Ok(Some(event)) => events.push(event),
-            Ok(None) => diagnostics.push(NormalizeDiagnostic {
-                row,
-                reason: "unsupported order type".to_string(),
-            }),
+            Ok(None) => {
+                let order_type = header_index
+                    .get("OrderType")
+                    .and_then(|&idx| record.get(idx))
+                    .map(str::to_string);
+                let uuid = header_index
+                    .get("Uuid")
+                    .and_then(|&idx| record.get(idx))
+                    .map(str::to_string);
+
+                let reason = match (order_type, uuid) {
+                    (Some(ot), Some(id)) => {
+                        format!("unsupported order type: OrderType='{}', Uuid='{}'", ot, id)
+                    }
+                    (Some(ot), None) => format!("unsupported order type: OrderType='{}'", ot),
+                    (None, Some(id)) => format!("unsupported order type: Uuid='{}'", id),
+                    (None, None) => "unsupported order type".to_string(),
+                };
+
+                diagnostics.push(NormalizeDiagnostic { row, reason });
+            }
             Err(err) => {
                 return Err(format!("row {}: {}", row, err));
             }

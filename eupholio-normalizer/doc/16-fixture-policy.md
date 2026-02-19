@@ -10,10 +10,12 @@ Policy for maintaining `eupholio-normalizer/tests/fixtures` as the adapter set g
 
 ## Directory structure
 
-- `tests/fixtures/<source>/...`
+- `tests/fixtures/normalizer/...`
   - raw source sample (`*.csv` / `*.json`)
   - expected normalized events (`*.normalized.json`)
   - optional notes (`README.md`) for source-specific caveats
+
+Current convention keeps `source` in the filename (not in nested directories).
 
 Example:
 
