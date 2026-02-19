@@ -16,3 +16,5 @@
   - Go版とのパリティ検証方法
 - [06-roadmap.md](./06-roadmap.md)
   - 今後の拡張計画
+- [07-rounding-policy.md](./07-rounding-policy.md)
+  - 外部注入可能な丸めルール方針

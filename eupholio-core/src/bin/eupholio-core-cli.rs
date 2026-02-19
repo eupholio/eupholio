@@ -2,7 +2,7 @@ use std::{collections::HashMap, io::{self, Read}};
 
 use eupholio_core::{
     calculate, calculate_total_average_with_carry,
-    config::{Config, CostMethod},
+    config::{Config, CostMethod, RoundingPolicy},
     event::Event,
     report::{CarryIn, Report},
 };
@@ -34,6 +34,7 @@ fn run(input: Input) -> Result<Report, io::Error> {
             Config {
                 method,
                 tax_year: input.tax_year,
+                rounding: RoundingPolicy::default(),
             },
             &input.events,
         ),
@@ -43,6 +44,7 @@ fn run(input: Input) -> Result<Report, io::Error> {
                     Config {
                         method,
                         tax_year: input.tax_year,
+                        rounding: RoundingPolicy::default(),
                     },
                     &input.events,
                 )

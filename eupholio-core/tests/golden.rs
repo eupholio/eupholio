@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::{TimeZone, Utc};
 use eupholio_core::{
     calculate, calculate_total_average_with_carry,
-    config::{Config, CostMethod},
+    config::{Config, CostMethod, RoundingPolicy},
     event::{Event, TransferDirection},
     report::CarryIn,
 };
@@ -43,6 +43,7 @@ fn case1_moving_average_vs_total_average() {
         Config {
             method: CostMethod::MovingAverage,
             tax_year: 2026,
+            rounding: RoundingPolicy::default(),
         },
         &events,
     );
@@ -50,6 +51,7 @@ fn case1_moving_average_vs_total_average() {
         Config {
             method: CostMethod::TotalAverage,
             tax_year: 2026,
+            rounding: RoundingPolicy::default(),
         },
         &events,
     );
@@ -90,6 +92,7 @@ fn case2_transfer_mixed_no_realized_from_transfer() {
         Config {
             method: CostMethod::MovingAverage,
             tax_year: 2026,
+            rounding: RoundingPolicy::default(),
         },
         &events,
     );
@@ -128,6 +131,7 @@ fn case3_crypto_crypto_as_acquire_plus_dispose() {
         Config {
             method: CostMethod::MovingAverage,
             tax_year: 2026,
+            rounding: RoundingPolicy::default(),
         },
         &events,
     );
