@@ -1,32 +1,32 @@
 # CLI
 
-バイナリ:
+Binary:
 - `eupholio-core-cli`
 
-標準入力JSONを読み、計算結果 `Report` JSON を標準出力へ返します。
+Reads JSON from standard input and writes the computed `Report` JSON to standard output.
 
-## サブコマンド
+## Subcommands
 
-- `calc` : JSON入力を計算してReportを出力
-- `validate` : JSON入力を検証（errorがあれば非0終了）
-  - `issues[]` に `code` / `level` / `message` を返却
-- `version` : CLIバージョン表示
+- `calc`: Compute from JSON input and output a report
+- `validate`: Validate JSON input (exits non-zero if there are errors)
+  - Returns `code` / `level` / `message` in `issues[]`
+- `version`: Show CLI version
 
-`calc` は互換のため、サブコマンド省略時のデフォルトでも実行されます。
+For backward compatibility, `calc` is also executed as the default when the subcommand is omitted.
 
-## 実行
+## Run
 
 ```bash
 cd eupholio-core
 cat input.json | cargo run --quiet --bin eupholio-core-cli -- calc
-# 互換: calc 省略でも可
+# Compatibility: calc can be omitted
 cat input.json | cargo run --quiet --bin eupholio-core-cli
 
-# バリデーションのみ
+# Validation only
 cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 ```
 
-## 入力（moving_average）
+## Input (moving_average)
 
 ```json
 {
@@ -39,7 +39,7 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 }
 ```
 
-## 入力（total_average + carry_in + rounding override）
+## Input (total_average + carry_in + rounding override)
 
 ```json
 {
@@ -63,11 +63,11 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 }
 ```
 
-## rounding.timing 差分例（同一最小入力で比較）
+## Example differences for `rounding.timing` (comparison using the same minimal input)
 
-以下は `tests/fixtures/per_year_total_difference.json` と同じ入力（`method=total_average`）を使い、`timing` だけを切り替えた比較です。
+The following comparison uses the same input as `tests/fixtures/per_year_total_difference.json` (`method=total_average`), with only `timing` switched.
 
-### 共通入力
+### Common input
 
 ```json
 {
@@ -88,9 +88,9 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 }
 ```
 
-`timing` を `report_only` / `per_event` / `per_year` に変更して `calc` を実行。
+Run `calc` with `timing` set to `report_only` / `per_event` / `per_year`.
 
-### 期待差分（抜粋）
+### Expected differences (excerpt)
 
 | timing | realized_pnl_jpy (report) | yearly_summary.by_asset.BTC.realized_pnl_jpy | yearly_summary.by_asset.ETH.realized_pnl_jpy |
 |---|---:|---:|---:|
@@ -98,23 +98,23 @@ cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 | `per_event` | `0` | `0` | `0` |
 | `per_year` | `0` | `0` | `0` |
 
-補足:
-- `report_only=1`, `per_year=0` は fixture (`per_year_total_difference.json`) で固定済み。
-- 同一入力で `per_event` も `0` となり、このケースでは `per_year` と同値。
+Notes:
+- `report_only=1`, `per_year=0` is fixed in the fixture (`per_year_total_difference.json`).
+- With the same input, `per_event` is also `0`; in this case it matches `per_year`.
 
-## validate/calc の timing 挙動（現状）
+## Current timing behavior in `validate` / `calc`
 
-- `rounding.timing=per_event`: warningなし（実装済み）
+- `rounding.timing=per_event`: no warning (implemented)
 - `rounding.timing=per_year`:
-  - `method=total_average`: warningなし（実装済み）
-  - `method=moving_average`: `ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE` を **error** として返す
+  - `method=total_average`: no warning (implemented)
+  - `method=moving_average`: returns `ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE` as an **error**
 
-`calc` も同条件（moving_average + per_year）を入力エラーとして拒否し、暗黙フォールバックはしません。
+`calc` also rejects the same condition (`moving_average + per_year`) as an input error, with no implicit fallback.
 
-- 回帰テスト: `tests/cli_e2e.rs`
+- Regression tests: `tests/cli_e2e.rs`
   - `cli_validate_per_event_no_timing_warning`
   - `cli_validate_per_year_total_average_no_timing_warning`
   - `cli_validate_ng_per_year_for_moving_average`
   - `cli_calc_ng_per_year_for_moving_average`
 
-一方で、`validate` は timing 以外の warning/error（例: `EVENT_YEAR_MISMATCH`, `DUPLICATE_EVENT_ID`）は通常どおり返します。
+On the other hand, `validate` still returns non-timing warnings/errors as usual (e.g., `EVENT_YEAR_MISMATCH`, `DUPLICATE_EVENT_ID`).

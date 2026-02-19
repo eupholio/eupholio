@@ -1,20 +1,20 @@
 # Roadmap
 
-## 近い将来
+## Near term
 
-1. rounding timing の実装（`per_event`, `per_year`）
-2. Normalizer I/F の確定（取引所差分をコア外へ）
-3. 追加パリティケース（異常系・大量データ）
-4. CI整備（Rust test + parity check）
-5. validation code の安定運用（下位互換ポリシー定義）
+1. Implement rounding timing (`per_event`, `per_year`)
+2. Finalize the Normalizer I/F (move exchange-specific differences outside the core)
+3. Add more parity cases (error cases and large datasets)
+4. Improve CI (Rust tests + parity checks)
+5. Stabilize validation code operations (define backward-compatibility policy)
 
-## 中期
+## Mid term
 
-1. WASM出力整備
-2. FIFO方式の追加（必要時）
-3. Fee policy 切替
+1. Improve WASM output
+2. Add FIFO method (when needed)
+3. Switchable fee policy
 
-## 長期
+## Long term
 
-1. UI層との統合
-2. 取引所アダプタ群の拡張
+1. Integrate with the UI layer
+2. Expand exchange adapter set

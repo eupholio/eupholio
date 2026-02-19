@@ -1,32 +1,32 @@
 # Go parity testing
 
-Go実装 (`mam`/`wam`) と Rust実装の損益を比較するスクリプトを用意しています。
+A script is provided to compare PnL results between the Go implementation (`mam`/`wam`) and the Rust implementation.
 
-## 前提
+## Prerequisites
 
 - Go toolchain
 - Rust toolchain
 
-## 実行
+## Run
 
 ```bash
 cd eupholio
 scripts/compare_go_rust.py
 ```
 
-## 現在のfixture
+## Current fixtures
 
-- `parity_fixture_case1.json`（基本売買）
-- `parity_fixture_case3.json`（crypto-crypto分解）
-- `parity_fixture_transfer.json`（Transfer混在）
-- `parity_fixture_fractional.json`（小数精度）
-- `parity_fixture_carry_in.json`（年跨ぎ繰越、総平均）
-- `parity_fixture_per_event_moving.json`（per_event 丸め差分の可視化: moving）
-- `parity_fixture_per_event_total.json`（per_event 丸め差分の可視化: total）
-- `parity_fixture_per_year_total.json`（per_year 丸め差分の可視化: total）
+- `parity_fixture_case1.json` (basic buy/sell)
+- `parity_fixture_case3.json` (crypto-to-crypto decomposition)
+- `parity_fixture_transfer.json` (mixed Transfer events)
+- `parity_fixture_fractional.json` (fractional precision)
+- `parity_fixture_carry_in.json` (cross-year carry-over, total average)
+- `parity_fixture_per_event_moving.json` (visualizing per_event rounding differences: moving)
+- `parity_fixture_per_event_total.json` (visualizing per_event rounding differences: total)
+- `parity_fixture_per_year_total.json` (visualizing per_year rounding differences: total)
 
-## 判定
+## Judgment criteria
 
-- 損益は `Decimal` 比較（微小差許容あり）
-- caseごとに `check_moving` / `check_total` を切替可能
-- `parity_fixture_per_event_*` / `parity_fixture_per_year_*` は Go parity の合否対象ではなく、Rust 側で timing 差分を固定化するための fixture
+- PnL is compared as `Decimal` (tiny differences are tolerated)
+- `check_moving` / `check_total` can be toggled per case
+- `parity_fixture_per_event_*` / `parity_fixture_per_year_*` are not pass/fail targets for Go parity; they are fixtures used to lock timing differences on the Rust side
