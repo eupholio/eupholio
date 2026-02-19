@@ -122,8 +122,9 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
 
     if operation != OP_COMPLETED_TRADING_CONTRACTS {
         return Ok(RowOutcome::Unsupported(format!(
-            "unsupported operation: operation='{}', id='{}'",
+            "unsupported operation: operation='{}', trading_currency='{}', id='{}'",
             sanitize_diagnostic_value(operation),
+            sanitize_diagnostic_value(&trading_currency),
             sanitize_diagnostic_value(id)
         )));
     }

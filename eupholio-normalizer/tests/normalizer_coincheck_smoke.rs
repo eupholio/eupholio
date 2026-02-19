@@ -148,6 +148,21 @@ cc10,2026-01-01 00:00:00 +0900,Canceled,1,BTC,,,0,\"\"\n";
     assert!(normalized.diagnostics[0]
         .reason
         .contains("unsupported operation"));
+    assert!(normalized.diagnostics[0]
+        .reason
+        .contains("trading_currency='BTC'"));
+}
+
+#[test]
+fn coincheck_unsupported_operation_reason_is_sanitized() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc17,2026-01-01 00:00:00 +0900,Canceled\twith-control,1,BTC,,,0,\"\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert_eq!(normalized.events.len(), 0);
+    assert_eq!(normalized.diagnostics.len(), 1);
+    assert!(!normalized.diagnostics[0].reason.contains('\n'));
+    assert!(!normalized.diagnostics[0].reason.contains('\t'));
 }
 
 #[test]
