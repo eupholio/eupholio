@@ -77,7 +77,7 @@ fn per_year_rounding_applies_jpy_rounding_after_rounded_qty_avg_product() {
         id: "a1".into(),
         asset: "BTC".into(),
         qty: dec!(1.04),
-        jpy_cost: dec!(104.52),
+        jpy_cost: dec!(104.47),
         ts: ts(2026, 1, 1),
     }];
 

@@ -5,7 +5,7 @@ This note locks current `per_year` behavior in `eupholio-core` to avoid interpre
 ## Scope
 
 - Applies to `method=total_average` with `rounding.timing=per_year`.
-- `method=moving_average` + `timing=per_year` is unsupported and rejected by validation.
+- `method=moving_average` + `timing=per_year` is not supported by CLI/input validation (rejected there); in the core library `calculate` path it is accepted but treated as `rounding.timing=report_only`.
 
 ## Locked behavior
 
