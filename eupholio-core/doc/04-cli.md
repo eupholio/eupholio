@@ -8,6 +8,7 @@
 ## サブコマンド
 
 - `calc` : JSON入力を計算してReportを出力
+- `validate` : JSON入力を検証（不正なら非0終了）
 - `version` : CLIバージョン表示
 
 `calc` は互換のため、サブコマンド省略時のデフォルトでも実行されます。
@@ -19,6 +20,9 @@ cd eupholio-core
 cat input.json | cargo run --quiet --bin eupholio-core-cli -- calc
 # 互換: calc 省略でも可
 cat input.json | cargo run --quiet --bin eupholio-core-cli
+
+# バリデーションのみ
+cat input.json | cargo run --quiet --bin eupholio-core-cli -- validate
 ```
 
 ## 入力（moving_average）
