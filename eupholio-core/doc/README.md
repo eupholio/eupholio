@@ -18,3 +18,5 @@
   - 今後の拡張計画
 - [07-rounding-policy.md](./07-rounding-policy.md)
   - 外部注入可能な丸めルール方針
+- [08-normalizer-interface.md](./08-normalizer-interface.md)
+  - 取引所入力をEventへ正規化するI/F草案

@@ -1,0 +1,46 @@
+name: rust-core
+
+on:
+  push:
+    paths:
+      - 'eupholio-core/**'
+      - 'scripts/compare_go_rust.py'
+      - 'scripts/go_cost_compare.go'
+      - 'scripts/parity_fixture_*.json'
+      - '.github/workflows/rust-core.yml'
+  pull_request:
+    paths:
+      - 'eupholio-core/**'
+      - 'scripts/compare_go_rust.py'
+      - 'scripts/go_cost_compare.go'
+      - 'scripts/parity_fixture_*.json'
+      - '.github/workflows/rust-core.yml'
+
+jobs:
+  test-rust-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo test
+        working-directory: eupholio-core
+        run: cargo test --all-targets
+
+  parity-go-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run parity script
+        run: scripts/compare_go_rust.py

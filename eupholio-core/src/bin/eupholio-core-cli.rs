@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, io::{self, Read}};
 use clap::{Parser, Subcommand};
 use eupholio_core::{
     calculate, calculate_total_average_with_carry_and_rounding,
-    config::{Config, CostMethod, RoundingPolicy},
+    config::{Config, CostMethod, RoundingPolicy, RoundingTiming},
     event::Event,
     report::{CarryIn, Report},
 };
@@ -117,6 +117,35 @@ fn validate_input(input: &Input) -> ValidationResult {
 
     if method.as_ref().ok() == Some(&CostMethod::MovingAverage) && !input.carry_in.is_empty() {
         warnings.push("carry_in is ignored for moving_average".to_string());
+    }
+
+    for (asset, c) in &input.carry_in {
+        if c.qty < Decimal::ZERO {
+            errors.push(format!("carry_in qty must be >= 0 (asset={asset})"));
+        }
+        if c.cost < Decimal::ZERO {
+            errors.push(format!("carry_in cost must be >= 0 (asset={asset})"));
+        }
+        if c.qty == Decimal::ZERO && c.cost > Decimal::ZERO {
+            warnings.push(format!("carry_in has cost without qty (asset={asset})"));
+        }
+    }
+
+    if let Some(rounding) = &input.rounding {
+        if let Some(jpy) = rounding.currency.get("JPY") {
+            if jpy.scale > 18 {
+                errors.push("rounding.currency.JPY.scale must be <= 18".to_string());
+            }
+        }
+        if rounding.unit_price.scale > 18 {
+            errors.push("rounding.unit_price.scale must be <= 18".to_string());
+        }
+        if rounding.quantity.scale > 18 {
+            errors.push("rounding.quantity.scale must be <= 18".to_string());
+        }
+        if rounding.timing != RoundingTiming::ReportOnly {
+            warnings.push("rounding.timing other than report_only is not fully implemented yet".to_string());
+        }
     }
 
     let mut ids = HashSet::new();
