@@ -2,11 +2,11 @@
 
 Scope: this file applies to the whole repository.
 
-## Branch workflow (core-rs track)
-- Base branch for Rust core work: `core-rs`.
-- Create feature branches from `core-rs` (`feat/...`, `fix/...`, `docs/...`).
+## Branch workflow
+- Base branch: `main`.
+- Create feature branches from `main` (`feat/...`, `fix/...`, `docs/...`, `perf/...`).
 - Keep PRs small and focused (logic vs docs vs fixtures/scripts when possible).
-- Before opening/updating a PR, rebase on latest `core-rs` and rerun required checks.
+- Before opening/updating a PR, rebase on latest `main` and rerun required checks.
 
 ## Mandatory checks before PR
 Run from repo root unless noted:
@@ -36,7 +36,7 @@ Update the relevant docs in the same PR:
 - If docs list changes, refresh index links in `eupholio-core/doc/README.md`
 
 ## PR checklist
-- [ ] Scope is focused and branch targets `core-rs`
+- [ ] Scope is focused and branch targets `main`
 - [ ] Mandatory checks all pass locally
 - [ ] Fixtures/golden tests updated for behavior changes
 - [ ] Go↔Rust parity checked (`scripts/compare_go_rust.py`)
