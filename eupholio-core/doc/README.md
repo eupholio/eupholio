@@ -20,3 +20,5 @@
   - 外部注入可能な丸めルール方針
 - [08-normalizer-interface.md](./08-normalizer-interface.md)
   - 取引所入力をEventへ正規化するI/F草案
+- [09-validation-codes.md](./09-validation-codes.md)
+  - validate が返す issue code 一覧
