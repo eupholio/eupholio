@@ -43,3 +43,21 @@
 1. 設定構造体を導入（未指定時はJPデフォルト）
 2. Report出力レイヤーで丸め適用（`report_only`）
 3. 互換用途で `per_event` / `per_year` を追加
+
+## 実装タスク（次フェーズ）
+
+### per_event
+
+- 目的: 各イベント適用後に丸めを実施
+- 受け入れ基準:
+  - 同一入力で `report_only` と異なる結果を再現できるfixtureを追加
+  - `validate` の warning (`ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED`) が不要になる
+  - Golden testに `per_event` ケースを2件以上追加
+
+### per_year
+
+- 目的: 年次集計終了時に丸めを実施
+- 受け入れ基準:
+  - TotalAverage の `yearly_summary` に対し年次丸めを一括適用
+  - carry-in を含むケースで期待値を固定
+  - `compare_go_rust.py` で `per_year` fixture比較が可能
