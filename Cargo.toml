@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "eupholio-core",
+  "eupholio-normalizer",
+]
+resolver = "2"

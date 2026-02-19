@@ -2,6 +2,8 @@ name: rust-core
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'eupholio-core/**'
       - 'scripts/compare_go_rust.py'

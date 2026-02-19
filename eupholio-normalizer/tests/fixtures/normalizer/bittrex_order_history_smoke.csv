@@ -1,0 +1,4 @@
+Uuid,Exchange,TimeStamp,OrderType,Limit,Quantity,QuantityRemaining,Commission,Price,PricePerUnit,IsConditional,Condition,ConditionTarget,ImmediateOrCancel,Closed,TimeInForceTypeId,TimeInForce
+buy-001,JPY-BTC,01/05/2026 09:00:00 AM,LIMIT_BUY,5005000,0.1,0,500,500000,5000000,False,,,False,01/05/2026 09:00:02 AM,0,GOOD_TIL_CANCELLED
+sell-001,JPY-BTC,02/10/2026 03:00:00 PM,LIMIT_SELL,7007000,0.1,0,700,700000,7000000,False,,,False,02/10/2026 03:00:04 PM,0,GOOD_TIL_CANCELLED
+skip-001,JPY-BTC,03/01/2026 08:00:00 AM,UNKNOWN,0,0.1,0,0,0,0,False,,,False,03/01/2026 08:00:01 AM,0,GOOD_TIL_CANCELLED
