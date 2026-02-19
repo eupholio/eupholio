@@ -38,7 +38,7 @@
 
 ### Notes
 - `per_event` rounding timing is implemented (golden/parity fixtures added for差分固定).
-- `per_year` rounding timing is still planned / partially implemented.
+- `per_year` rounding timing is implemented for TotalAverage yearly finalization (non per-event).
 - `report_only` is default.
 
 ### Verification

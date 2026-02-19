@@ -251,6 +251,64 @@ fn assert_per_event_fixture(path: &str) {
     assert_ne!(report_only.realized_pnl_jpy, per_event.realized_pnl_jpy);
 }
 
+#[derive(Debug, Deserialize)]
+struct PerYearFixture {
+    tax_year: i32,
+    rounding: PerEventFixtureRounding,
+    events: Vec<Event>,
+    expected: PerYearFixtureExpected,
+}
+
+#[derive(Debug, Deserialize)]
+struct PerYearFixtureExpected {
+    report_only_realized_pnl_jpy: Decimal,
+    per_year_realized_pnl_jpy: Decimal,
+}
+
+fn assert_per_year_fixture(path: &str) {
+    let fixture_path = format!("{}/tests/{}", env!("CARGO_MANIFEST_DIR"), path);
+    let fixture_raw = std::fs::read_to_string(fixture_path).unwrap();
+    let fixture: PerYearFixture = serde_json::from_str(&fixture_raw).unwrap();
+
+    let base_rounding = RoundingPolicy {
+        currency: fixture.rounding.currency,
+        unit_price: fixture.rounding.unit_price,
+        quantity: fixture.rounding.quantity,
+        timing: RoundingTiming::ReportOnly,
+    };
+
+    let report_only = calculate(
+        Config {
+            method: CostMethod::TotalAverage,
+            tax_year: fixture.tax_year,
+            rounding: base_rounding.clone(),
+        },
+        &fixture.events,
+    );
+
+    let per_year = calculate(
+        Config {
+            method: CostMethod::TotalAverage,
+            tax_year: fixture.tax_year,
+            rounding: RoundingPolicy {
+                timing: RoundingTiming::PerYear,
+                ..base_rounding
+            },
+        },
+        &fixture.events,
+    );
+
+    assert_eq!(
+        report_only.realized_pnl_jpy,
+        fixture.expected.report_only_realized_pnl_jpy
+    );
+    assert_eq!(
+        per_year.realized_pnl_jpy,
+        fixture.expected.per_year_realized_pnl_jpy
+    );
+    assert_ne!(report_only.realized_pnl_jpy, per_year.realized_pnl_jpy);
+}
+
 #[test]
 fn case5_per_event_fixture_moving_average_differs_from_report_only() {
     assert_per_event_fixture("fixtures/per_event_moving_difference.json");
@@ -259,4 +317,9 @@ fn case5_per_event_fixture_moving_average_differs_from_report_only() {
 #[test]
 fn case6_per_event_fixture_total_average_differs_from_report_only() {
     assert_per_event_fixture("fixtures/per_event_total_difference.json");
+}
+
+#[test]
+fn case7_per_year_fixture_total_average_differs_from_report_only() {
+    assert_per_year_fixture("fixtures/per_year_total_difference.json");
 }

@@ -34,11 +34,15 @@ pub fn run(events: &[Event], tax_year: i32) -> Report {
 }
 
 pub fn run_per_event(events: &[Event], tax_year: i32, policy: &RoundingPolicy) -> Report {
-    run_with_carry_inner(events, tax_year, &HashMap::new(), Some(policy))
+    run_with_carry_inner(events, tax_year, &HashMap::new(), Some(policy), None)
+}
+
+pub fn run_per_year(events: &[Event], tax_year: i32, policy: &RoundingPolicy) -> Report {
+    run_with_carry_inner(events, tax_year, &HashMap::new(), None, Some(policy))
 }
 
 pub fn run_with_carry(events: &[Event], tax_year: i32, carry_in: &HashMap<String, CarryIn>) -> Report {
-    run_with_carry_inner(events, tax_year, carry_in, None)
+    run_with_carry_inner(events, tax_year, carry_in, None, None)
 }
 
 pub fn run_with_carry_per_event(
@@ -47,7 +51,16 @@ pub fn run_with_carry_per_event(
     carry_in: &HashMap<String, CarryIn>,
     policy: &RoundingPolicy,
 ) -> Report {
-    run_with_carry_inner(events, tax_year, carry_in, Some(policy))
+    run_with_carry_inner(events, tax_year, carry_in, Some(policy), None)
+}
+
+pub fn run_with_carry_per_year(
+    events: &[Event],
+    tax_year: i32,
+    carry_in: &HashMap<String, CarryIn>,
+    policy: &RoundingPolicy,
+) -> Report {
+    run_with_carry_inner(events, tax_year, carry_in, None, Some(policy))
 }
 
 fn run_with_carry_inner(
@@ -55,6 +68,7 @@ fn run_with_carry_inner(
     tax_year: i32,
     carry_in: &HashMap<String, CarryIn>,
     per_event_rounding: Option<&RoundingPolicy>,
+    per_year_rounding: Option<&RoundingPolicy>,
 ) -> Report {
     let mut buckets: HashMap<String, Bucket> = HashMap::new();
     let mut diagnostics = Vec::new();
@@ -140,12 +154,29 @@ fn run_with_carry_inner(
         };
 
         let realized = b.total_disposed_proceeds - b.total_disposed_qty * avg;
-        realized_total += realized;
-
         let carry_out_qty = denom_qty - b.total_disposed_qty;
         let carry_out_cost = carry_out_qty * avg;
 
-        if carry_out_qty < Decimal::ZERO {
+        let mut summary = YearlyAssetSummary {
+            carry_in_qty: b.carry_in_qty,
+            carry_in_cost: b.carry_in_cost,
+            total_acquired_qty: b.total_acquired_qty,
+            total_acquired_cost: b.total_acquired_cost,
+            total_disposed_qty: b.total_disposed_qty,
+            total_disposed_proceeds: b.total_disposed_proceeds,
+            average_cost_per_unit: avg,
+            realized_pnl_jpy: realized,
+            carry_out_qty,
+            carry_out_cost,
+        };
+
+        if let Some(policy) = per_year_rounding {
+            apply_per_year_rounding_to_asset_summary(&mut summary, policy);
+        }
+
+        realized_total += summary.realized_pnl_jpy;
+
+        if summary.carry_out_qty < Decimal::ZERO {
             diagnostics.push(Warning::NegativePosition {
                 asset: asset.clone(),
             });
@@ -154,26 +185,24 @@ fn run_with_carry_inner(
         positions.insert(
             asset.clone(),
             Position {
-                qty: carry_out_qty,
-                avg_cost_jpy_per_unit: avg,
+                qty: summary.carry_out_qty,
+                avg_cost_jpy_per_unit: summary.average_cost_per_unit,
             },
         );
 
-        by_asset.insert(
-            asset,
-            YearlyAssetSummary {
-                carry_in_qty: b.carry_in_qty,
-                carry_in_cost: b.carry_in_cost,
-                total_acquired_qty: b.total_acquired_qty,
-                total_acquired_cost: b.total_acquired_cost,
-                total_disposed_qty: b.total_disposed_qty,
-                total_disposed_proceeds: b.total_disposed_proceeds,
-                average_cost_per_unit: avg,
-                realized_pnl_jpy: realized,
-                carry_out_qty,
-                carry_out_cost,
-            },
-        );
+        by_asset.insert(asset, summary);
+    }
+
+    if let Some(policy) = per_year_rounding {
+        let jpy_rule = policy
+            .currency
+            .get("JPY")
+            .copied()
+            .unwrap_or(RoundRule {
+                scale: 0,
+                mode: RoundingMode::HalfUp,
+            });
+        income = round_by_rule(income, jpy_rule);
     }
 
     Report {
@@ -209,6 +238,28 @@ fn apply_per_event_rounding(
         b.total_disposed_qty = round_by_rule(b.total_disposed_qty, policy.quantity);
         b.total_disposed_proceeds = round_by_rule(b.total_disposed_proceeds, jpy_rule);
     }
+}
+
+fn apply_per_year_rounding_to_asset_summary(summary: &mut YearlyAssetSummary, policy: &RoundingPolicy) {
+    let jpy_rule = policy
+        .currency
+        .get("JPY")
+        .copied()
+        .unwrap_or(RoundRule {
+            scale: 0,
+            mode: RoundingMode::HalfUp,
+        });
+
+    summary.carry_in_qty = round_by_rule(summary.carry_in_qty, policy.quantity);
+    summary.carry_in_cost = round_by_rule(summary.carry_in_cost, jpy_rule);
+    summary.total_acquired_qty = round_by_rule(summary.total_acquired_qty, policy.quantity);
+    summary.total_acquired_cost = round_by_rule(summary.total_acquired_cost, jpy_rule);
+    summary.total_disposed_qty = round_by_rule(summary.total_disposed_qty, policy.quantity);
+    summary.total_disposed_proceeds = round_by_rule(summary.total_disposed_proceeds, jpy_rule);
+    summary.average_cost_per_unit = round_by_rule(summary.average_cost_per_unit, policy.unit_price);
+    summary.realized_pnl_jpy = round_by_rule(summary.realized_pnl_jpy, jpy_rule);
+    summary.carry_out_qty = round_by_rule(summary.carry_out_qty, policy.quantity);
+    summary.carry_out_cost = round_by_rule(summary.carry_out_cost, jpy_rule);
 }
 
 fn round_by_rule(v: Decimal, rule: RoundRule) -> Decimal {

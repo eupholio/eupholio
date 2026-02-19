@@ -83,9 +83,9 @@ fn cli_validate_ng_rounding_scale() {
 }
 
 #[test]
-fn cli_validate_warn_rounding_timing_not_implemented_for_per_year() {
+fn cli_validate_per_year_no_timing_warning() {
     let input = r#"{
-      "method":"moving_average",
+      "method":"total_average",
       "tax_year":2026,
       "rounding": {
         "currency": {"JPY": {"scale": 0, "mode": "half_up"}},
@@ -103,7 +103,7 @@ fn cli_validate_warn_rounding_timing_not_implemented_for_per_year() {
         .write_stdin(input)
         .assert()
         .success()
-        .stdout(predicate::str::contains("ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED"));
+        .stdout(predicate::str::contains("ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED").not());
 }
 
 #[test]

@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, io::{self, Read}};
 use clap::{Parser, Subcommand};
 use eupholio_core::{
     calculate, calculate_total_average_with_carry_and_rounding,
-    config::{Config, CostMethod, RoundingPolicy, RoundingTiming},
+    config::{Config, CostMethod, RoundingPolicy},
     event::Event,
     report::{CarryIn, Report},
 };
@@ -40,7 +40,6 @@ enum ValidationCode {
     RoundingJpyScaleTooLarge,
     RoundingUnitPriceScaleTooLarge,
     RoundingQuantityScaleTooLarge,
-    RoundingTimingNotFullyImplemented,
     EventYearMismatch,
     DuplicateEventId,
     AcquireQtyNonPositive,
@@ -65,7 +64,6 @@ impl ValidationCode {
             ValidationCode::RoundingJpyScaleTooLarge => "ROUNDING_JPY_SCALE_TOO_LARGE",
             ValidationCode::RoundingUnitPriceScaleTooLarge => "ROUNDING_UNIT_PRICE_SCALE_TOO_LARGE",
             ValidationCode::RoundingQuantityScaleTooLarge => "ROUNDING_QUANTITY_SCALE_TOO_LARGE",
-            ValidationCode::RoundingTimingNotFullyImplemented => "ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED",
             ValidationCode::EventYearMismatch => "EVENT_YEAR_MISMATCH",
             ValidationCode::DuplicateEventId => "DUPLICATE_EVENT_ID",
             ValidationCode::AcquireQtyNonPositive => "ACQUIRE_QTY_NON_POSITIVE",
@@ -260,12 +258,6 @@ fn validate_input(input: &Input) -> ValidationResult {
             out.push_error(
                 ValidationCode::RoundingQuantityScaleTooLarge,
                 "rounding.quantity.scale must be <= 18".to_string(),
-            );
-        }
-        if rounding.timing == RoundingTiming::PerYear {
-            out.push_warning(
-                ValidationCode::RoundingTimingNotFullyImplemented,
-                "rounding.timing=per_year is not fully implemented yet".to_string(),
             );
         }
     }

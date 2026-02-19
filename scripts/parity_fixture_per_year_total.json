@@ -1,0 +1,22 @@
+{
+  "tax_year": 2026,
+  "rounding": {
+    "currency": {"JPY": {"scale": 0, "mode": "half_up"}},
+    "unit_price": {"scale": 8, "mode": "half_up"},
+    "quantity": {"scale": 8, "mode": "half_up"},
+    "timing": "per_year"
+  },
+  "events": [
+    {"type":"Acquire","asset":"BTC","qty":"1","jpy_cost":"100"},
+    {"type":"Dispose","asset":"BTC","qty":"1","jpy_proceeds":"100.49"},
+    {"type":"Acquire","asset":"ETH","qty":"1","jpy_cost":"100"},
+    {"type":"Dispose","asset":"ETH","qty":"1","jpy_proceeds":"100.49"}
+  ],
+  "expectation": {
+    "report_only_realized_pnl_jpy": "1",
+    "per_year_realized_pnl_jpy": "0"
+  },
+  "check_moving": false,
+  "check_total": false,
+  "note": "Per-year rounding showcase fixture. Intended for Rust timing comparison, not Go parity pass/fail."
+}

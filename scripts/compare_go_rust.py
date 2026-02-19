@@ -25,6 +25,8 @@ def rust_input(fixture, method):
     out = {"method": method, "tax_year": fixture["tax_year"], "events": events}
     if method == "total_average" and fixture.get("carry_in"):
         out["carry_in"] = fixture["carry_in"]
+    if fixture.get("rounding"):
+        out["rounding"] = fixture["rounding"]
     return out
 
 
@@ -100,6 +102,9 @@ if __name__ == "__main__":
         ROOT / "scripts/parity_fixture_transfer.json",
         ROOT / "scripts/parity_fixture_fractional.json",
         ROOT / "scripts/parity_fixture_carry_in.json",
+        ROOT / "scripts/parity_fixture_per_event_moving.json",
+        ROOT / "scripts/parity_fixture_per_event_total.json",
+        ROOT / "scripts/parity_fixture_per_year_total.json",
     ]
     results = [compare_case(c) for c in cases]
     print("summary:", json.dumps(results, ensure_ascii=False))

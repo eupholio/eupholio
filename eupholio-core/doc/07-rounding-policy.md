@@ -57,7 +57,8 @@
 ### per_year
 
 - 目的: 年次集計終了時に丸めを実施
-- 受け入れ基準:
-  - TotalAverage の `yearly_summary` に対し年次丸めを一括適用
-  - carry-in を含むケースで期待値を固定
-  - `compare_go_rust.py` で `per_year` fixture比較が可能
+- 実装済み:
+  - TotalAverage で、`yearly_summary.by_asset` を確定するタイミングで丸めを適用（イベントごとには丸めない）
+  - `realized_pnl_jpy` は assetごとに年次丸めした値を合算
+  - carry-in を含む年次集計でも同様に適用
+  - `compare_go_rust.py` に `per_year` fixture を追加（可視化用途）

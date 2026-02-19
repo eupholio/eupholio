@@ -45,8 +45,6 @@
   - moving_averageでcarry_in指定（現在無視）
 - `CARRY_IN_COST_WITH_ZERO_QTY`
   - qty=0でcost>0
-- `ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED`
-  - report_only以外のtiming指定
 
 ## 運用指針
 
