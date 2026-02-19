@@ -49,10 +49,10 @@
 ### per_event
 
 - 目的: 各イベント適用後に丸めを実施
-- 受け入れ基準:
+- 実装済み:
   - 同一入力で `report_only` と異なる結果を再現できるfixtureを追加
-  - `validate` の warning (`ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED`) が不要になる
-  - Golden testに `per_event` ケースを2件以上追加
+  - `validate` で `per_event` 指定時の `ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED` warning は出さない
+  - Golden testに `per_event` ケースを2件追加
 
 ### per_year
 

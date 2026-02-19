@@ -3,11 +3,13 @@ use std::collections::HashMap;
 use chrono::{TimeZone, Utc};
 use eupholio_core::{
     calculate, calculate_total_average_with_carry,
-    config::{Config, CostMethod, RoundingPolicy},
+    config::{Config, CostMethod, RoundingPolicy, RoundingTiming},
     event::{Event, TransferDirection},
     report::CarryIn,
 };
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use serde::Deserialize;
 
 fn ts(y: i32, m: u32, d: u32) -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(y, m, d, 0, 0, 0).unwrap()
@@ -176,4 +178,85 @@ fn case4_total_average_with_carry_in() {
     // report_only + JPY(0桁, half_up) で 2,333,333 へ丸め
     assert_eq!(report.realized_pnl_jpy, dec!(2333333));
     assert_eq!(report.positions["BTC"].qty, dec!(2));
+}
+
+#[derive(Debug, Deserialize)]
+struct PerEventFixture {
+    tax_year: i32,
+    method: String,
+    rounding: PerEventFixtureRounding,
+    events: Vec<Event>,
+    expected: PerEventFixtureExpected,
+}
+
+#[derive(Debug, Deserialize)]
+struct PerEventFixtureRounding {
+    currency: HashMap<String, eupholio_core::config::RoundRule>,
+    unit_price: eupholio_core::config::RoundRule,
+    quantity: eupholio_core::config::RoundRule,
+}
+
+#[derive(Debug, Deserialize)]
+struct PerEventFixtureExpected {
+    report_only_realized_pnl_jpy: Decimal,
+    per_event_realized_pnl_jpy: Decimal,
+}
+
+fn assert_per_event_fixture(path: &str) {
+    let fixture_path = format!("{}/tests/{}", env!("CARGO_MANIFEST_DIR"), path);
+    let fixture_raw = std::fs::read_to_string(fixture_path).unwrap();
+    let fixture: PerEventFixture = serde_json::from_str(&fixture_raw).unwrap();
+    let method = match fixture.method.as_str() {
+        "moving_average" => CostMethod::MovingAverage,
+        "total_average" => CostMethod::TotalAverage,
+        v => panic!("unknown method: {v}"),
+    };
+
+    let base_rounding = RoundingPolicy {
+        currency: fixture.rounding.currency,
+        unit_price: fixture.rounding.unit_price,
+        quantity: fixture.rounding.quantity,
+        timing: RoundingTiming::ReportOnly,
+    };
+
+    let report_only = calculate(
+        Config {
+            method,
+            tax_year: fixture.tax_year,
+            rounding: base_rounding.clone(),
+        },
+        &fixture.events,
+    );
+
+    let per_event = calculate(
+        Config {
+            method,
+            tax_year: fixture.tax_year,
+            rounding: RoundingPolicy {
+                timing: RoundingTiming::PerEvent,
+                ..base_rounding
+            },
+        },
+        &fixture.events,
+    );
+
+    assert_eq!(
+        report_only.realized_pnl_jpy,
+        fixture.expected.report_only_realized_pnl_jpy
+    );
+    assert_eq!(
+        per_event.realized_pnl_jpy,
+        fixture.expected.per_event_realized_pnl_jpy
+    );
+    assert_ne!(report_only.realized_pnl_jpy, per_event.realized_pnl_jpy);
+}
+
+#[test]
+fn case5_per_event_fixture_moving_average_differs_from_report_only() {
+    assert_per_event_fixture("fixtures/per_event_moving_difference.json");
+}
+
+#[test]
+fn case6_per_event_fixture_total_average_differs_from_report_only() {
+    assert_per_event_fixture("fixtures/per_event_total_difference.json");
 }

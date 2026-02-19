@@ -37,8 +37,9 @@
 - Prepare for wasm/local execution and safer migration from Go.
 
 ### Notes
-- `per_event` / `per_year` rounding timing is planned but not fully implemented.
-- `report_only` is default and currently applied.
+- `per_event` rounding timing is implemented (golden/parity fixtures added for差分固定).
+- `per_year` rounding timing is still planned / partially implemented.
+- `report_only` is default.
 
 ### Verification
 - `cargo test` passed
