@@ -152,8 +152,8 @@ fn parse_datetime(s: &str) -> Result<DateTime<Utc>, String> {
 }
 
 fn parse_rate_pair(comment: &str) -> Result<(Decimal, String, String), String> {
-    static LIMIT_ORDER_RE: OnceLock<Regex> = OnceLock::new();
-    let re = LIMIT_ORDER_RE.get_or_init(|| {
+    static COMMENT_RATE_PAIR_RE: OnceLock<Regex> = OnceLock::new();
+    let re = COMMENT_RATE_PAIR_RE.get_or_init(|| {
         Regex::new(r"Rate: ([0-9]+(?:\.[0-9]+)?), Pair: ([0-9a-z]+)_([0-9a-z]+)")
             .expect("regex should compile")
     });
@@ -169,12 +169,14 @@ fn parse_rate_pair(comment: &str) -> Result<(Decimal, String, String), String> {
 
 fn sanitize_diagnostic_value(s: &str) -> String {
     let mut out = String::new();
+    let mut len = 0usize;
     for c in s.chars() {
         if c.is_control() {
             continue;
         }
         out.push(c);
-        if out.chars().count() >= MAX_DIAGNOSTIC_VALUE_LEN {
+        len += 1;
+        if len >= MAX_DIAGNOSTIC_VALUE_LEN {
             out.push('…');
             break;
         }
