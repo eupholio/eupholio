@@ -1,31 +1,31 @@
 # PR Prep (core-rs -> main)
 
-このブランチは `core-rs`。Rustコア再構築を段階的に追加した。
+This branch is `core-rs`. It introduces the Rust core rebuild in incremental steps.
 
-## 変更サマリ
+## Change summary
 
 ### Core implementation
-- `moving_average` / `total_average` 実装
-- carry-in 対応 (`calculate_total_average_with_carry_and_rounding`)
-- report-only 丸め適用
+- Implemented `moving_average` / `total_average`
+- Added carry-in support (`calculate_total_average_with_carry_and_rounding`)
+- Applied report-only rounding
 
 ### CLI
-- サブコマンド化 (`calc`, `validate`, `version`)
-- `rounding` 外部注入対応
-- `validate` の issue code 体系化（enum一元管理）
-- `EVENT_YEAR_MISMATCH` warning 追加
+- Introduced subcommands (`calc`, `validate`, `version`)
+- Added external rounding injection (`rounding`)
+- Structured `validate` issue codes (centrally managed via enums)
+- Added `EVENT_YEAR_MISMATCH` warning
 
 ### Quality
-- golden tests
-- CLI e2e tests
-- Go/Rust parity scriptとfixture拡張
-- GitHub Actions workflow (`rust-core.yml`)
+- Golden tests
+- CLI end-to-end tests
+- Extended Go/Rust parity script and fixtures
+- Added GitHub Actions workflow (`rust-core.yml`)
 
 ### Docs
-- `doc/01`〜`doc/10` まで体系化
-- rounding policy / validation codes / normalizer interface を追加
+- Organized documentation from `doc/01` to `doc/10`
+- Added rounding policy / validation codes / normalizer interface docs
 
-## PR本文テンプレ（草案）
+## PR body template (draft)
 
 ### What
 - Add Rust-based `eupholio-core` with switchable cost methods and carry-in support.
@@ -33,18 +33,18 @@
 - Add parity and CI scaffolding.
 
 ### Why
-- Isolate accounting engine from exchange-specific ingestion.
+- Isolate the accounting engine from exchange-specific ingestion.
 - Prepare for wasm/local execution and safer migration from Go.
 
 ### Notes
-- `per_event` rounding timing is implemented (golden/parity fixtures added for差分固定).
+- `per_event` rounding timing is implemented (golden/parity fixtures added to lock in behavior differences).
 - `per_year` rounding timing is implemented for TotalAverage yearly finalization (non per-event).
-- `report_only` is default.
+- `report_only` is the default.
 
 ### Verification
 - `cargo test` passed
 - `scripts/compare_go_rust.py` passed on fixture set
 
-## 推奨マージ方針
-- squash merge 推奨（履歴が多いため）
-- PRタイトル案: `feat: introduce rust eupholio-core with cli/validation/parity foundation`
+## Recommended merge strategy
+- Squash merge is recommended (commit history is extensive)
+- Suggested PR title: `feat: introduce rust eupholio-core with cli/validation/parity foundation`

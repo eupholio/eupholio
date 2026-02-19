@@ -1,26 +1,26 @@
 # eupholio-core docs
 
-このディレクトリは `eupholio-core`（Rust計算コア）の設計・運用ドキュメント置き場です。
+This directory contains design and operational documentation for `eupholio-core` (the Rust calculation core).
 
-## 目次
+## Table of contents
 
 - [01-overview.md](./01-overview.md)
-  - 目的・スコープ・非スコープ
+  - Purpose, scope, and out-of-scope items
 - [02-domain-model.md](./02-domain-model.md)
-  - Event/Config/Report の仕様
+  - Event/Config/Report specifications
 - [03-calculation-methods.md](./03-calculation-methods.md)
-  - MovingAverage / TotalAverage の計算詳細
+  - Detailed calculations for MovingAverage / TotalAverage
 - [04-cli.md](./04-cli.md)
-  - CLIのJSON入出力、実行例
+  - JSON I/O and execution examples for the CLI
 - [05-parity-testing.md](./05-parity-testing.md)
-  - Go版とのパリティ検証方法
+  - Parity validation workflow against the Go implementation
 - [06-roadmap.md](./06-roadmap.md)
-  - 今後の拡張計画
+  - Planned future extensions
 - [07-rounding-policy.md](./07-rounding-policy.md)
-  - 外部注入可能な丸めルール方針
+  - Policy for externally injected rounding rules
 - [08-normalizer-interface.md](./08-normalizer-interface.md)
-  - 取引所入力をEventへ正規化するI/F草案
+  - Draft interface for normalizing exchange inputs into Events
 - [09-validation-codes.md](./09-validation-codes.md)
-  - validate が返す issue code 一覧
+  - List of issue codes returned by `validate`
 - [10-pr-prep-core-rs.md](./10-pr-prep-core-rs.md)
-  - core-rs から main へのPR準備ノート
+  - PR preparation notes for merging core-rs into main

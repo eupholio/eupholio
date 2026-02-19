@@ -5,12 +5,12 @@ Branch: `core-rs`
 
 ## 1) Scope
 
-This PR line introduces/finishes the Rust accounting core track for rounding timing and parity hardening, including:
+This PR line introduces/finalizes the Rust accounting core track for rounding timing and parity hardening, including:
 
 - rounding timing implementation in core (`per_event`, `per_year`)
 - validation warning code extension (`EVENT_YEAR_MISMATCH`)
 - parity fixture expansion + strict CI parity checks
-- docs updates for CLI/rounding/PR prep
+- documentation updates for CLI/rounding/PR prep
 
 ## 2) Key commits grouped by theme
 
@@ -24,7 +24,7 @@ This PR line introduces/finishes the Rust accounting core track for rounding tim
 - `2690a6b` ci: strict-check rounding showcase parity fixtures
 
 ### C. Documentation / PR prep
-- `4ebc202` docs(core): expand README with cli usage and parity workflow
+- `4ebc202` docs(core): expand README with CLI usage and parity workflow
 - `33c4fdd` docs(roadmap): define per_event/per_year rounding implementation plan
 - `1040e6a` docs(pr): add core-rs to main pull request prep notes
 - `84b09e5` docs(cli): add side-by-side rounding timing examples and validate warning note
@@ -64,11 +64,11 @@ scripts/compare_go_rust.py
 ## 5) Known limitations / follow-ups
 
 - Exchange-specific normalizers are still outside `eupholio-core` scope.
-- Parity validation is fixture-based (not exhaustive over all historical data shapes).
+- Parity validation is fixture-based (not exhaustive across all historical data shapes).
 - Final confidence depends on CI environment where both Go and Rust toolchains are available.
 - `EVENT_YEAR_MISMATCH` is a warning-oriented guard; policy escalation (warning/error) can be revisited.
 
 ## 6) PR note (concise)
 
 - No history rewrite performed.
-- This step only prepares PR-facing summary and checks branch readiness metadata.
+- This step only prepares a PR-facing summary and branch-readiness metadata.

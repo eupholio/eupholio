@@ -1,6 +1,6 @@
 # eupholio-core
 
-Rust implementation of eupholio cost calculation core.
+Rust implementation of the eupholio cost-calculation core.
 
 ## Current status
 
@@ -10,10 +10,10 @@ Implemented:
 - CLI subcommands: `calc`, `validate`, `version`
 - External rounding override input (`rounding`)
 - Go vs Rust parity scripts
-- Year mismatch handling: events whose `event.ts` year differs from `tax_year` are warned (`YearMismatch` / `EVENT_YEAR_MISMATCH`) and excluded from calculation
+- Year mismatch handling: events whose `event.ts` year differs from `tax_year` are emitted as warnings (`YearMismatch` / `EVENT_YEAR_MISMATCH`) and excluded from calculation
 
 Not yet fully implemented:
-- exchange-specific normalizers
+- Exchange-specific normalizers
 
 ## Quickstart
 
@@ -66,7 +66,7 @@ cargo run --quiet --bin eupholio-core-cli -- version
 
 ## Parity check
 
-From repository root:
+From the repository root:
 
 ```bash
 scripts/compare_go_rust.py
