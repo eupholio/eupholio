@@ -65,12 +65,12 @@ while IFS=$'\t' read -r pr_number pr_url; do
   reasons=""
   if [[ "$new_fail_count" -gt 0 ]]; then
     need_alert=1
-    reasons="新規CI失敗: $(echo "$failing" | jq -r 'join(", ")')"
+    reasons="New failing checks: $(echo "$failing" | jq -r 'join(", ")')"
   fi
   if [[ "$unresolved" -gt "$prev_unresolved" ]]; then
     need_alert=1
     [[ -n "$reasons" ]] && reasons+=" / "
-    reasons+="未解決レビュー増加: ${prev_unresolved}→${unresolved}"
+    reasons+="Unresolved reviews increased: ${prev_unresolved}->${unresolved}"
   fi
 
   sig=$(jq -nc --arg n "$pr_number" --argjson f "$failing" --argjson u "$unresolved" '{prNumber:($n|tonumber),failingChecks:$f,unresolvedCount:$u}')
@@ -78,7 +78,7 @@ while IFS=$'\t' read -r pr_number pr_url; do
   if [[ "$need_alert" -eq 1 ]] && [[ "$sig" != "$prev_sig" ]]; then
     alerts+=$'\n- PR #'
     alerts+="$pr_number $pr_url"
-    alerts+=$'\n  理由: '
+    alerts+=$'\n  Reason: '
     alerts+="$reasons"
     last_sig="$sig"
   fi
@@ -89,9 +89,9 @@ done <<< "$pr_lines"
 printf '%s\n' "$new_state" > "$STATE_FILE"
 
 if [[ -n "$alerts" ]]; then
-  echo "要対応のPRがあります。${alerts}"
+  echo "Action required PRs detected.${alerts}"
 elif [[ "$WARN" -eq 1 ]]; then
-  echo "PR監視で一部エラー（継続）"
+  echo "PR watchdog had partial errors (continuing)"
 else
   echo "NO_REPLY"
 fi
