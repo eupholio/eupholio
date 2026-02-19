@@ -149,3 +149,47 @@ cc10,2026-01-01 00:00:00 +0900,Canceled,1,BTC,,,0,\"\"\n";
         .reason
         .contains("unsupported operation"));
 }
+
+#[test]
+fn coincheck_transfer_handles_lowercase_asset_with_whitespace() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc11,2026-01-01 00:00:00 +0900,Received,1.25, btc ,,,0,\"\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 1);
+
+    match &normalized.events[0] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(qty.to_string(), "1.25");
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
+        }
+        _ => panic!("expected transfer event"),
+    }
+}
+
+#[test]
+fn coincheck_transfer_empty_amount_is_rejected() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc12,2026-01-01 00:00:00 +0900,Sent,,BTC,,,0,\"\"\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("empty amount should fail")
+        .contains("invalid decimal"));
+}
+
+#[test]
+fn coincheck_transfer_bad_datetime_is_rejected() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc13,2026/01/01 00:00:00,Received,1,BTC,,,0,\"\"\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("invalid datetime should fail")
+        .contains("invalid datetime"));
+}
