@@ -6,6 +6,7 @@ on:
       - 'eupholio-core/**'
       - 'scripts/compare_go_rust.py'
       - 'scripts/go_cost_compare.go'
+      - 'scripts/check_validation_codes.py'
       - 'scripts/parity_fixture_*.json'
       - '.github/workflows/rust-core.yml'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - 'eupholio-core/**'
       - 'scripts/compare_go_rust.py'
       - 'scripts/go_cost_compare.go'
+      - 'scripts/check_validation_codes.py'
       - 'scripts/parity_fixture_*.json'
       - '.github/workflows/rust-core.yml'
 
@@ -24,6 +26,9 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Check validation code documentation sync
+        run: scripts/check_validation_codes.py
 
       - name: Cargo test
         working-directory: eupholio-core

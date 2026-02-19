@@ -49,6 +49,12 @@
 - `EVENT_YEAR_MISMATCH`
   - `event.ts` の年が `tax_year` と不一致
 
+## ドキュメント整合性チェック
+
+- 実装 (`eupholio-core/src/bin/eupholio-core-cli.rs`) と本ドキュメントの `code` 一覧は CI で自動検証される
+- 検証スクリプト: `scripts/check_validation_codes.py`
+- どちらか一方だけ変更すると `rust-core` workflow が失敗するため、必ず同時に更新する
+
 ## 運用指針
 
 - `ok=false` の場合は計算実行しない
