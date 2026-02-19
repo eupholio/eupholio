@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use chrono::{TimeZone, Utc};
 use eupholio_core::{
-    calculate,
+    calculate, calculate_total_average_with_carry,
     config::{Config, CostMethod},
     event::{Event, TransferDirection},
+    report::CarryIn,
 };
 use rust_decimal_macros::dec;
 
@@ -132,4 +135,41 @@ fn case3_crypto_crypto_as_acquire_plus_dispose() {
     assert_eq!(moving.realized_pnl_jpy, dec!(500000));
     assert_eq!(moving.positions["BTC"].qty, dec!(0.5));
     assert_eq!(moving.positions["ETH"].qty, dec!(10));
+}
+
+#[test]
+fn case4_total_average_with_carry_in() {
+    let events = vec![
+        Event::Acquire {
+            id: "a1".into(),
+            asset: "BTC".into(),
+            qty: dec!(1),
+            jpy_cost: dec!(6000000),
+            ts: ts(2026, 1, 5),
+        },
+        Event::Dispose {
+            id: "d1".into(),
+            asset: "BTC".into(),
+            qty: dec!(1),
+            jpy_proceeds: dec!(7000000),
+            ts: ts(2026, 2, 1),
+        },
+    ];
+
+    let mut carry_in = HashMap::new();
+    carry_in.insert(
+        "BTC".into(),
+        CarryIn {
+            qty: dec!(2),
+            cost: dec!(8000000),
+        },
+    );
+
+    let report = calculate_total_average_with_carry(2026, &events, &carry_in);
+
+    // avg = (8,000,000 + 6,000,000) / (2 + 1) = 4,666,666.666...
+    // realized = 7,000,000 - 1 * avg
+    assert!(report.realized_pnl_jpy > dec!(2333333));
+    assert!(report.realized_pnl_jpy < dec!(2333334));
+    assert_eq!(report.positions["BTC"].qty, dec!(2));
 }

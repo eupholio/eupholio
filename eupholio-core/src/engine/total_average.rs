@@ -3,9 +3,7 @@ use std::collections::{HashMap, HashSet};
 use rust_decimal::Decimal;
 
 use crate::event::Event;
-use crate::report::{
-    Position, Report, Warning, YearlyAssetSummary, YearlySummary,
-};
+use crate::report::{CarryIn, Position, Report, Warning, YearlyAssetSummary, YearlySummary};
 
 #[derive(Debug, Clone)]
 struct Bucket {
@@ -31,10 +29,23 @@ impl Bucket {
 }
 
 pub fn run(events: &[Event], tax_year: i32) -> Report {
+    run_with_carry(events, tax_year, &HashMap::new())
+}
+
+pub fn run_with_carry(events: &[Event], tax_year: i32, carry_in: &HashMap<String, CarryIn>) -> Report {
     let mut buckets: HashMap<String, Bucket> = HashMap::new();
     let mut diagnostics = Vec::new();
     let mut income = Decimal::ZERO;
     let mut seen_ids = HashSet::new();
+
+    for (asset, c) in carry_in {
+        let b = buckets.entry(asset.clone()).or_insert_with(Bucket::new);
+        b.carry_in_qty = c.qty;
+        b.carry_in_cost = c.cost;
+        diagnostics.push(Warning::YearBoundaryCarry {
+            asset: asset.clone(),
+        });
+    }
 
     for e in events {
         if !seen_ids.insert(e.id().to_string()) {

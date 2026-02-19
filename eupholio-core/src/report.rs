@@ -8,6 +8,12 @@ pub struct Position {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CarryIn {
+    pub qty: Decimal,
+    pub cost: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct YearlyAssetSummary {
     pub carry_in_qty: Decimal,
     pub carry_in_cost: Decimal,
@@ -32,6 +38,7 @@ pub enum Warning {
     DuplicateEventId { id: String },
     NegativePosition { asset: String },
     YearMismatch { event_year: i32, tax_year: i32 },
+    YearBoundaryCarry { asset: String },
 }
 
 #[derive(Debug, Clone, PartialEq)]
