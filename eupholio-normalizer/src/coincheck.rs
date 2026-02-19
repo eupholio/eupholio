@@ -89,7 +89,8 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
         ));
     }
 
-    if rate <= Decimal::ZERO {
+    // parse_rate_pair currently accepts non-negative rates only.
+    if rate == Decimal::ZERO {
         return Err(format!("rate must be > 0, got {}", rate));
     }
 
