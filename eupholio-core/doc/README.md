@@ -28,3 +28,5 @@ This directory contains design and operational documentation for `eupholio-core`
   - Collected summary for PR readiness checkpoints
 - [12-dev-workflows.md](./12-dev-workflows.md)
   - Reusable development and review loops
+- [13-per-year-semantics.md](./13-per-year-semantics.md)
+  - Locked semantics for per-year rounding behavior
