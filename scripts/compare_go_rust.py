@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import json
+import os
 import pathlib
+import shutil
 import subprocess
 import sys
 from decimal import Decimal
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-GO = "/home/kinakao/.local/go/bin/go"
+GO = os.environ.get("GO_BIN") or shutil.which("go")
 
 
 def rust_input(fixture, method):
@@ -39,6 +41,8 @@ def rust_input(fixture, method):
 
 
 def run_go(fixture):
+    if not GO:
+        raise RuntimeError("go binary not found (set GO_BIN or install Go in PATH)")
     p = subprocess.run(
         [GO, "run", str(ROOT / "scripts/go_cost_compare.go")],
         input=json.dumps(fixture).encode(),
