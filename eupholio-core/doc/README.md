@@ -1,0 +1,18 @@
+# eupholio-core docs
+
+このディレクトリは `eupholio-core`（Rust計算コア）の設計・運用ドキュメント置き場です。
+
+## 目次
+
+- [01-overview.md](./01-overview.md)
+  - 目的・スコープ・非スコープ
+- [02-domain-model.md](./02-domain-model.md)
+  - Event/Config/Report の仕様
+- [03-calculation-methods.md](./03-calculation-methods.md)
+  - MovingAverage / TotalAverage の計算詳細
+- [04-cli.md](./04-cli.md)
+  - CLIのJSON入出力、実行例
+- [05-parity-testing.md](./05-parity-testing.md)
+  - Go版とのパリティ検証方法
+- [06-roadmap.md](./06-roadmap.md)
+  - 今後の拡張計画

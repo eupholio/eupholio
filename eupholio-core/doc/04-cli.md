@@ -1,0 +1,42 @@
+# CLI
+
+バイナリ:
+- `eupholio-core-cli`
+
+標準入力JSONを読み、計算結果 `Report` JSON を標準出力へ返します。
+
+## 実行
+
+```bash
+cd eupholio-core
+cat input.json | cargo run --quiet --bin eupholio-core-cli
+```
+
+## 入力（moving_average）
+
+```json
+{
+  "method": "moving_average",
+  "tax_year": 2026,
+  "events": [
+    {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"3000000","ts":"2026-01-01T00:00:00Z"},
+    {"type":"Dispose","id":"d1","asset":"BTC","qty":"0.5","jpy_proceeds":"2000000","ts":"2026-02-01T00:00:00Z"}
+  ]
+}
+```
+
+## 入力（total_average + carry_in）
+
+```json
+{
+  "method": "total_average",
+  "tax_year": 2026,
+  "carry_in": {
+    "BTC": {"qty":"2","cost":"8000000"}
+  },
+  "events": [
+    {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"6000000","ts":"2026-01-05T00:00:00Z"},
+    {"type":"Dispose","id":"d1","asset":"BTC","qty":"1","jpy_proceeds":"7000000","ts":"2026-02-01T00:00:00Z"}
+  ]
+}
+```
