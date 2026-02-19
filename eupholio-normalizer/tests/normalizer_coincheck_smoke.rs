@@ -193,3 +193,55 @@ cc13,2026/01/01 00:00:00,Received,1,BTC,,,0,\"\"\n";
         .expect_err("invalid datetime should fail")
         .contains("invalid datetime"));
 }
+
+#[test]
+fn coincheck_fiat_deposit_withdrawal_map_to_transfer() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc14,2026-01-01 00:00:00 +0900,Deposit,10000,JPY,,,0,\"\"\n\
+cc15,2026-01-02 00:00:00 +0900,Withdrawal,2500,JPY,,,0,\"\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert!(normalized.diagnostics.is_empty());
+    assert_eq!(normalized.events.len(), 2);
+
+    match &normalized.events[0] {
+        Event::Transfer {
+            id,
+            asset,
+            direction,
+            ..
+        } => {
+            assert_eq!(id, "cc14:fiat_transfer_in");
+            assert_eq!(asset, "JPY");
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
+        }
+        _ => panic!("expected transfer event"),
+    }
+
+    match &normalized.events[1] {
+        Event::Transfer {
+            id,
+            asset,
+            direction,
+            ..
+        } => {
+            assert_eq!(id, "cc15:fiat_transfer_out");
+            assert_eq!(asset, "JPY");
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
+        }
+        _ => panic!("expected transfer event"),
+    }
+}
+
+#[test]
+fn coincheck_non_jpy_fiat_transfer_is_diagnosed() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc16,2026-01-01 00:00:00 +0900,Deposit,10,USD,,,0,\"\"\n";
+
+    let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
+    assert_eq!(normalized.events.len(), 0);
+    assert_eq!(normalized.diagnostics.len(), 1);
+    assert!(normalized.diagnostics[0]
+        .reason
+        .contains("unsupported fiat transfer currency"));
+}

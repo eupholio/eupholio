@@ -10,6 +10,8 @@ use std::sync::OnceLock;
 const OP_COMPLETED_TRADING_CONTRACTS: &str = "Completed trading contracts";
 const OP_RECEIVED: &str = "Received";
 const OP_SENT: &str = "Sent";
+const OP_DEPOSIT: &str = "Deposit";
+const OP_WITHDRAWAL: &str = "Withdrawal";
 const TIME_LAYOUT: &str = "%Y-%m-%d %H:%M:%S %z";
 const MAX_DIAGNOSTIC_VALUE_LEN: usize = 64;
 
@@ -74,27 +76,43 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
     let trading_currency = get(index, row, "trading_currency")?.to_ascii_uppercase();
     let ts = parse_datetime(get(index, row, "time")?)?;
 
-    if operation == OP_RECEIVED || operation == OP_SENT {
+    if operation == OP_RECEIVED
+        || operation == OP_SENT
+        || operation == OP_DEPOSIT
+        || operation == OP_WITHDRAWAL
+    {
         if amount <= Decimal::ZERO {
             return Err(format!("transfer qty must be > 0, got {}", amount));
         }
 
-        let direction = if operation == OP_RECEIVED {
+        let is_inbound = operation == OP_RECEIVED || operation == OP_DEPOSIT;
+        let is_fiat = operation == OP_DEPOSIT || operation == OP_WITHDRAWAL;
+
+        if is_fiat && trading_currency != "JPY" {
+            return Ok(RowOutcome::Unsupported(format!(
+                "unsupported fiat transfer currency: operation='{}', trading_currency='{}', id='{}'",
+                sanitize_diagnostic_value(operation),
+                sanitize_diagnostic_value(&trading_currency),
+                sanitize_diagnostic_value(id)
+            )));
+        }
+
+        let direction = if is_inbound {
             TransferDirection::In
         } else {
             TransferDirection::Out
         };
 
+        let suffix = match operation {
+            OP_RECEIVED => "transfer_in",
+            OP_SENT => "transfer_out",
+            OP_DEPOSIT => "fiat_transfer_in",
+            OP_WITHDRAWAL => "fiat_transfer_out",
+            _ => unreachable!("filtered above"),
+        };
+
         return Ok(RowOutcome::Event(Event::Transfer {
-            id: format!(
-                "{}:{}",
-                id,
-                if operation == OP_RECEIVED {
-                    "transfer_in"
-                } else {
-                    "transfer_out"
-                }
-            ),
+            id: format!("{}:{}", id, suffix),
             asset: trading_currency,
             qty: amount,
             direction,
