@@ -12,7 +12,7 @@ fn cli_calc_works() {
       ]
     }"#;
 
-    let mut cmd = Command::cargo_bin("eupholio-core-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
     cmd.arg("calc")
         .write_stdin(input)
         .assert()
@@ -31,7 +31,7 @@ fn cli_validate_ok() {
       ]
     }"#;
 
-    let mut cmd = Command::cargo_bin("eupholio-core-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
     cmd.arg("validate")
         .write_stdin(input)
         .assert()
@@ -50,7 +50,7 @@ fn cli_validate_ng_duplicate_id() {
       ]
     }"#;
 
-    let mut cmd = Command::cargo_bin("eupholio-core-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
     cmd.arg("validate")
         .write_stdin(input)
         .assert()
@@ -74,7 +74,7 @@ fn cli_validate_ng_rounding_scale() {
       ]
     }"#;
 
-    let mut cmd = Command::cargo_bin("eupholio-core-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
     cmd.arg("validate")
         .write_stdin(input)
         .assert()
@@ -98,7 +98,7 @@ fn cli_validate_warn_rounding_timing_not_implemented() {
       ]
     }"#;
 
-    let mut cmd = Command::cargo_bin("eupholio-core-cli").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
     cmd.arg("validate")
         .write_stdin(input)
         .assert()
