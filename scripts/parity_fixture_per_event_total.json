@@ -7,16 +7,16 @@
     "timing": "per_event"
   },
   "events": [
-    {"type":"Acquire","asset":"BTC","qty":"0.333","jpy_cost":"100"},
-    {"type":"Acquire","asset":"BTC","qty":"0.333","jpy_cost":"100"},
-    {"type":"Acquire","asset":"BTC","qty":"0.333","jpy_cost":"100"},
-    {"type":"Dispose","asset":"BTC","qty":"0.999","jpy_proceeds":"301"}
+    {"type":"Acquire","id":"a1","asset":"BTC","qty":"0.333","jpy_cost":"100","ts":"2026-01-01T00:00:00Z"},
+    {"type":"Acquire","id":"a2","asset":"BTC","qty":"0.333","jpy_cost":"100","ts":"2026-01-02T00:00:00Z"},
+    {"type":"Acquire","id":"a3","asset":"BTC","qty":"0.333","jpy_cost":"100","ts":"2026-01-03T00:00:00Z"},
+    {"type":"Dispose","id":"d1","asset":"BTC","qty":"0.999","jpy_proceeds":"301","ts":"2026-01-04T00:00:00Z"}
   ],
   "expectation": {
-    "report_only_realized_pnl_jpy": "1",
-    "per_event_realized_pnl_jpy": "-2.03030303030303030303030303"
+    "moving_realized_pnl_jpy": "1",
+    "total_realized_pnl_jpy": "-2.03030303030303030303030303"
   },
   "check_moving": false,
   "check_total": false,
-  "note": "Per-event rounding showcase fixture. Intended for Rust timing comparison, not Go parity pass/fail."
+  "note": "Per-event rounding fixture with strict Rust expected values."
 }

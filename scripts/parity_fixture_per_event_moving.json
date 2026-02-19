@@ -7,15 +7,15 @@
     "timing": "per_event"
   },
   "events": [
-    {"type":"Acquire","asset":"BTC","qty":"3","jpy_cost":"100"},
-    {"type":"Dispose","asset":"BTC","qty":"1","jpy_proceeds":"34"},
-    {"type":"Dispose","asset":"BTC","qty":"1","jpy_proceeds":"34"}
+    {"type":"Acquire","id":"a1","asset":"BTC","qty":"3","jpy_cost":"100","ts":"2026-01-01T00:00:00Z"},
+    {"type":"Dispose","id":"d1","asset":"BTC","qty":"1","jpy_proceeds":"34","ts":"2026-01-02T00:00:00Z"},
+    {"type":"Dispose","id":"d2","asset":"BTC","qty":"1","jpy_proceeds":"34","ts":"2026-01-03T00:00:00Z"}
   ],
   "expectation": {
-    "report_only_realized_pnl_jpy": "1",
-    "per_event_realized_pnl_jpy": "2"
+    "moving_realized_pnl_jpy": "2",
+    "total_realized_pnl_jpy": "1.333333333333333333333333334"
   },
   "check_moving": false,
   "check_total": false,
-  "note": "Per-event rounding showcase fixture. Intended for Rust timing comparison, not Go parity pass/fail."
+  "note": "Per-event rounding fixture with strict Rust expected values."
 }
