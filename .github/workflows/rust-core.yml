@@ -57,6 +57,23 @@ jobs:
       - name: Generate coverage (workspace)
         run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
 
+      - name: Check coverage threshold (line >= 75%)
+        run: |
+          set -euo pipefail
+          read -r LH LF < <(awk -F: '$1=="LH"{lh+=$2} $1=="LF"{lf+=$2} END{print lh, lf}' lcov.info)
+          if [ "${LF}" -eq 0 ]; then
+            echo "No LF entries found in lcov.info"
+            exit 1
+          fi
+          COVERAGE=$(awk -v lh="$LH" -v lf="$LF" 'BEGIN { printf "%.2f", (lh/lf)*100 }')
+          echo "line coverage: ${COVERAGE}% (${LH}/${LF})"
+          echo "### Rust coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Line coverage: **${COVERAGE}%** (${LH}/${LF})" >> "$GITHUB_STEP_SUMMARY"
+          if ! awk -v cov="$COVERAGE" 'BEGIN { exit (cov+0 >= 75.0 ? 0 : 1) }'; then
+            echo "Coverage ${COVERAGE}% is below the required threshold of 75%."
+            exit 1
+          fi
+
       - name: Upload lcov artifact
         uses: actions/upload-artifact@v4
         with:
