@@ -30,3 +30,5 @@ This directory contains design and operational documentation for `eupholio-core`
   - Reusable development and review loops
 - [13-per-year-semantics.md](./13-per-year-semantics.md)
   - Locked semantics for per-year rounding behavior
+- [14-normalizer-phase1.md](./14-normalizer-phase1.md)
+  - Phase-1 integration plan from source data to core report
