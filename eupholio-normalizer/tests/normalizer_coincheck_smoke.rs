@@ -251,12 +251,39 @@ cc15,2026-01-02 00:00:00 +0900,Withdrawal,2500,JPY,,,0,\"\"\n";
 #[test]
 fn coincheck_non_jpy_fiat_transfer_is_diagnosed() {
     let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
-cc16,2026-01-01 00:00:00 +0900,Deposit,10,USD,,,0,\"\"\n";
+cc16,2026-01-01 00:00:00 +0900,Deposit,10,USD,,,0,\"\"\n\
+cc18,2026-01-01 00:00:00 +0900,Withdrawal,10,EUR,,,0,\"\"\n";
 
     let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
     assert_eq!(normalized.events.len(), 0);
-    assert_eq!(normalized.diagnostics.len(), 1);
+    assert_eq!(normalized.diagnostics.len(), 2);
     assert!(normalized.diagnostics[0]
         .reason
         .contains("unsupported fiat transfer currency"));
+    assert!(normalized.diagnostics[1]
+        .reason
+        .contains("unsupported fiat transfer currency"));
+}
+
+#[test]
+fn coincheck_missing_required_field_is_reported() {
+    let raw = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+cc19,2026-01-01 00:00:00 +0900,Canceled\n";
+
+    assert!(normalize_trade_history_csv(raw)
+        .expect_err("short row should fail")
+        .contains("invalid csv row"));
+}
+
+#[test]
+fn coincheck_diagnostic_value_is_truncated_with_ellipsis() {
+    let long_op = "X".repeat(80);
+    let raw = format!(
+        "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\ncc20,2026-01-01 00:00:00 +0900,{long_op},1,BTC,,,0,\"\"\n"
+    );
+
+    let normalized = normalize_trade_history_csv(&raw).expect("normalization should succeed");
+    assert_eq!(normalized.events.len(), 0);
+    assert_eq!(normalized.diagnostics.len(), 1);
+    assert!(normalized.diagnostics[0].reason.contains("…"));
 }
