@@ -9,6 +9,7 @@
 
 - `calc` : JSON入力を計算してReportを出力
 - `validate` : JSON入力を検証（不正なら非0終了）
+  - `issues[]` に `code` / `level` / `message` を返却
 - `version` : CLIバージョン表示
 
 `calc` は互換のため、サブコマンド省略時のデフォルトでも実行されます。
