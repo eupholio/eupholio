@@ -17,12 +17,19 @@ if [[ -n "${STATE_FILE:-}" ]]; then
   :
 else
   DEFAULT_STATE_DIR_OUT="$WORKSPACE_ROOT/memory"
-  DEFAULT_STATE_DIR_IN="$REPO_ROOT/.cache"
-  if mkdir -p "$DEFAULT_STATE_DIR_OUT" 2>/dev/null; then
+  if mkdir -p "$DEFAULT_STATE_DIR_OUT" 2>/dev/null && : >"$DEFAULT_STATE_DIR_OUT/.pr_watchdog_write_test" 2>/dev/null; then
+    rm -f "$DEFAULT_STATE_DIR_OUT/.pr_watchdog_write_test" 2>/dev/null || true
     STATE_FILE="$DEFAULT_STATE_DIR_OUT/pr-watchdog-state.json"
   else
-    mkdir -p "$DEFAULT_STATE_DIR_IN"
-    STATE_FILE="$DEFAULT_STATE_DIR_IN/pr-watchdog-state.json"
+    CACHE_BASE="${XDG_CACHE_HOME:-${TMPDIR:-/tmp}}"
+    DEFAULT_STATE_DIR_FALLBACK="$CACHE_BASE/pr_watchdog"
+    if mkdir -p "$DEFAULT_STATE_DIR_FALLBACK" 2>/dev/null && : >"$DEFAULT_STATE_DIR_FALLBACK/.pr_watchdog_write_test" 2>/dev/null; then
+      rm -f "$DEFAULT_STATE_DIR_FALLBACK/.pr_watchdog_write_test" 2>/dev/null || true
+      STATE_FILE="$DEFAULT_STATE_DIR_FALLBACK/pr-watchdog-state.json"
+    else
+      echo "Failed to find a writable directory for pr_watchdog state file." >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -39,6 +46,12 @@ if ! gh auth status >/dev/null 2>&1; then
 fi
 
 mkdir -p "$(dirname "$STATE_FILE")"
+LOCK_FILE="${STATE_FILE}.lock"
+exec 9>"$LOCK_FILE"
+if command -v flock >/dev/null 2>&1; then
+  flock -x 9
+fi
+
 if [[ ! -f "$STATE_FILE" ]] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
   echo '{"prs":{}}' > "$STATE_FILE"
 fi
@@ -86,7 +99,7 @@ count_unresolved_threads() {
 
 pr_lines=""
 list_ok=1
-if ! pr_lines=$(gh pr list --repo "$REPO" --state open --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
+if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit 200 --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
   list_ok=0
   warn_once
 fi
@@ -99,9 +112,9 @@ if [[ "$list_ok" -eq 1 ]]; then
   while IFS=$'\t' read -r pr_number pr_url; do
     [[ -z "${pr_number:-}" ]] && continue
 
-    prev_unresolved=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastUnresolvedCount // 0')
-    prev_failing=$(echo "$prev_state" | jq -c --arg n "$pr_number" '.prs[$n].lastFailingChecks // []')
-    prev_sig=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastNotifiedSignature // ""')
+    prev_unresolved=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastUnresolvedCount // 0' 2>/dev/null || { warn_once; echo 0; })
+    prev_failing=$(echo "$prev_state" | jq -c --arg n "$pr_number" '.prs[$n].lastFailingChecks // []' 2>/dev/null || { warn_once; echo '[]'; })
+    prev_sig=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastNotifiedSignature // ""' 2>/dev/null || { warn_once; echo ""; })
 
     failing_ok=1
     failing='[]'
@@ -176,7 +189,8 @@ if [[ "$list_ok" -eq 1 ]]; then
     new_state="$tmp_state"
   done <<< "$pr_lines"
 
-  printf '%s\n' "$new_state" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+  tmp_state_file=$(mktemp "$(dirname "$STATE_FILE")/pr-watchdog-state.XXXXXX")
+  printf '%s\n' "$new_state" > "$tmp_state_file" && mv "$tmp_state_file" "$STATE_FILE"
 fi
 
 if [[ -n "$alerts" ]]; then
