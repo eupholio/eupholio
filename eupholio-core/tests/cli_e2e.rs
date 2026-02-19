@@ -105,3 +105,21 @@ fn cli_validate_warn_rounding_timing_not_implemented() {
         .success()
         .stdout(predicate::str::contains("ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED"));
 }
+
+#[test]
+fn cli_validate_warn_event_year_mismatch() {
+    let input = r#"{
+      "method":"moving_average",
+      "tax_year":2026,
+      "events":[
+        {"type":"Acquire","id":"a1","asset":"BTC","qty":"1","jpy_cost":"3000000","ts":"2025-12-31T00:00:00Z"}
+      ]
+    }"#;
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("eupholio-core-cli"));
+    cmd.arg("validate")
+        .write_stdin(input)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("EVENT_YEAR_MISMATCH"));
+}

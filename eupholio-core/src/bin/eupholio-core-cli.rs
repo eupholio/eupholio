@@ -41,6 +41,7 @@ enum ValidationCode {
     RoundingUnitPriceScaleTooLarge,
     RoundingQuantityScaleTooLarge,
     RoundingTimingNotFullyImplemented,
+    EventYearMismatch,
     DuplicateEventId,
     AcquireQtyNonPositive,
     AcquireCostNegative,
@@ -65,6 +66,7 @@ impl ValidationCode {
             ValidationCode::RoundingUnitPriceScaleTooLarge => "ROUNDING_UNIT_PRICE_SCALE_TOO_LARGE",
             ValidationCode::RoundingQuantityScaleTooLarge => "ROUNDING_QUANTITY_SCALE_TOO_LARGE",
             ValidationCode::RoundingTimingNotFullyImplemented => "ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED",
+            ValidationCode::EventYearMismatch => "EVENT_YEAR_MISMATCH",
             ValidationCode::DuplicateEventId => "DUPLICATE_EVENT_ID",
             ValidationCode::AcquireQtyNonPositive => "ACQUIRE_QTY_NON_POSITIVE",
             ValidationCode::AcquireCostNegative => "ACQUIRE_COST_NEGATIVE",
@@ -270,6 +272,13 @@ fn validate_input(input: &Input) -> ValidationResult {
 
     let mut ids = HashSet::new();
     for e in &input.events {
+        if e.year() != input.tax_year {
+            out.push_warning(
+                ValidationCode::EventYearMismatch,
+                format!("event year {} does not match tax_year {} (id={})", e.year(), input.tax_year, e.id()),
+            );
+        }
+
         let id = e.id().to_string();
         if !ids.insert(id.clone()) {
             out.push_error(ValidationCode::DuplicateEventId, format!("duplicate event id: {id}"));

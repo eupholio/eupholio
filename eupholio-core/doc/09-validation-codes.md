@@ -16,6 +16,8 @@
   - `rounding.unit_price.scale > 18`
 - `ROUNDING_QUANTITY_SCALE_TOO_LARGE`
   - `rounding.quantity.scale > 18`
+- `EVENT_YEAR_MISMATCH`
+  - `event.ts` の年が `tax_year` と不一致
 - `DUPLICATE_EVENT_ID`
   - イベントID重複
 - `ACQUIRE_QTY_NON_POSITIVE`
