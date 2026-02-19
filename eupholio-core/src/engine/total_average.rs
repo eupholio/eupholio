@@ -284,7 +284,10 @@ fn apply_per_year_rounding_to_asset_summary(summary: &mut YearlyAssetSummary, po
     summary.average_cost_per_unit = round_by_rule(summary.average_cost_per_unit, policy.unit_price);
     summary.realized_pnl_jpy = round_by_rule(summary.realized_pnl_jpy, jpy_rule);
     summary.carry_out_qty = round_by_rule(summary.carry_out_qty, policy.quantity);
-    summary.carry_out_cost = round_by_rule(summary.carry_out_cost, jpy_rule);
+    summary.carry_out_cost = round_by_rule(
+        summary.carry_out_qty * summary.average_cost_per_unit,
+        jpy_rule,
+    );
 }
 
 fn round_by_rule(v: Decimal, rule: RoundRule) -> Decimal {

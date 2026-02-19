@@ -97,7 +97,7 @@ fn apply_rounding(report: &mut Report, policy: &RoundingPolicy) {
             y.average_cost_per_unit = round_by_rule(y.average_cost_per_unit, policy.unit_price);
             y.realized_pnl_jpy = round_by_rule(y.realized_pnl_jpy, jpy_rule);
             y.carry_out_qty = round_by_rule(y.carry_out_qty, policy.quantity);
-            y.carry_out_cost = round_by_rule(y.carry_out_cost, jpy_rule);
+            y.carry_out_cost = round_by_rule(y.carry_out_qty * y.average_cost_per_unit, jpy_rule);
         }
     }
 }
