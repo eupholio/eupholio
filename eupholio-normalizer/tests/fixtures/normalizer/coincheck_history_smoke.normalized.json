@@ -1,5 +1,13 @@
 [
   {
+    "type": "Transfer",
+    "id": "cc-000:transfer_in",
+    "asset": "JPY",
+    "qty": "100000",
+    "direction": "In",
+    "ts": "2025-12-31T15:00:00Z"
+  },
+  {
     "type": "Acquire",
     "id": "cc-101:acquire",
     "asset": "BTC",
@@ -14,5 +22,13 @@
     "qty": "0.1",
     "jpy_proceeds": "699300",
     "ts": "2026-02-10T03:00:04Z"
+  },
+  {
+    "type": "Transfer",
+    "id": "cc-999:transfer_out",
+    "asset": "JPY",
+    "qty": "1000",
+    "direction": "Out",
+    "ts": "2026-02-20T03:00:00Z"
   }
 ]
