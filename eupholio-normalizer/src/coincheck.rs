@@ -51,9 +51,10 @@ pub fn normalize_trade_history_csv(raw: &str) -> Result<NormalizeResult, String>
             continue;
         }
 
-        match map_row(&header_index, &record)? {
-            RowOutcome::Event(event) => events.push(event),
-            RowOutcome::Unsupported(reason) => diagnostics.push(NormalizeDiagnostic { row, reason }),
+        match map_row(&header_index, &record) {
+            Ok(RowOutcome::Event(event)) => events.push(event),
+            Ok(RowOutcome::Unsupported(reason)) => diagnostics.push(NormalizeDiagnostic { row, reason }),
+            Err(e) => return Err(format!("row {}: {}", row, e)),
         }
     }
 
@@ -159,7 +160,7 @@ fn parse_rate_pair(comment: &str) -> Result<(Decimal, String, String), String> {
 
     let caps = re
         .captures(comment)
-        .ok_or_else(|| format!("failed to parse comment: {}", comment))?;
+        .ok_or_else(|| format!("failed to parse comment: {}", sanitize_diagnostic_value(comment)))?;
     let rate = parse_decimal(&caps[1])?;
     let quote = caps[2].to_ascii_uppercase();
     let base = caps[3].to_ascii_uppercase();
