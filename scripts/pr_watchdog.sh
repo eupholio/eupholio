@@ -78,6 +78,28 @@ fi
 WARN=0
 warn_once() { WARN=1; }
 
+GQL_THREADS_FIRST100='query($owner:String!, $name:String!, $number:Int!) {
+  repository(owner:$owner, name:$name) {
+    pullRequest(number:$number) {
+      reviewThreads(first:100) {
+        nodes { isResolved }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}'
+
+GQL_THREADS_FIRST100_AFTER='query($owner:String!, $name:String!, $number:Int!, $after:String) {
+  repository(owner:$owner, name:$name) {
+    pullRequest(number:$number) {
+      reviewThreads(first:100, after:$after) {
+        nodes { isResolved }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}'
+
 count_unresolved_threads() {
   local pr_number="$1"
   local after=""
@@ -87,13 +109,13 @@ count_unresolved_threads() {
     local page
     if [[ -z "$after" ]]; then
       if ! page=$(gh api graphql \
-        -f query='query($owner:String!, $name:String!, $number:Int!){ repository(owner:$owner, name:$name){ pullRequest(number:$number){ reviewThreads(first:100){ nodes{ isResolved } pageInfo{ hasNextPage endCursor } } } } }' \
+        -f query="$GQL_THREADS_FIRST100" \
         -F owner="$OWNER" -F name="$NAME" -F number="$pr_number" 2>/dev/null); then
         return 1
       fi
     else
       if ! page=$(gh api graphql \
-        -f query='query($owner:String!, $name:String!, $number:Int!, $after:String){ repository(owner:$owner, name:$name){ pullRequest(number:$number){ reviewThreads(first:100, after:$after){ nodes{ isResolved } pageInfo{ hasNextPage endCursor } } } } }' \
+        -f query="$GQL_THREADS_FIRST100_AFTER" \
         -F owner="$OWNER" -F name="$NAME" -F number="$pr_number" -F after="$after" 2>/dev/null); then
         return 1
       fi
@@ -187,13 +209,14 @@ if [[ "$list_ok" -eq 1 ]]; then
       warn_once
       sig="$prev_sig"
     fi
-    last_sig="$prev_sig"
     if [[ "$need_alert" -eq 1 ]] && [[ "$sig" != "$prev_sig" ]]; then
       alerts+=$'\n- PR #'
       alerts+="$pr_number $pr_url"
       alerts+=$'\n  Reason: '
       alerts+="$reasons"
       last_sig="$sig"
+    else
+      last_sig="$prev_sig"
     fi
 
     # Keep previous signature if this PR had transient fetch failures.
