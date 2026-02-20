@@ -23,7 +23,16 @@ NAME="${REPO##*/}"
 # 2) $WORKSPACE_ROOT/memory (shared workspace)
 # 3) cache fallback ($XDG_CACHE_HOME or $TMPDIR)
 if [[ -n "${STATE_FILE:-}" ]]; then
-  :
+  state_dir="$(dirname "$STATE_FILE")"
+  if ! mkdir -p "$state_dir" 2>/dev/null; then
+    echo "Failed to create STATE_FILE directory: $state_dir" >&2
+    exit 1
+  fi
+  if ! : >"$state_dir/.pr_watchdog_write_test" 2>/dev/null; then
+    echo "STATE_FILE directory is not writable: $state_dir" >&2
+    exit 1
+  fi
+  rm -f "$state_dir/.pr_watchdog_write_test" 2>/dev/null || true
 else
   DEFAULT_STATE_DIR_OUT="$WORKSPACE_ROOT/memory"
   if mkdir -p "$DEFAULT_STATE_DIR_OUT" 2>/dev/null && : >"$DEFAULT_STATE_DIR_OUT/.pr_watchdog_write_test" 2>/dev/null; then
