@@ -9,9 +9,11 @@ fn bitflyer_smoke_source_to_normalized_to_calculate() {
 
     let normalized = normalize_transaction_history_csv(raw).expect("normalization should succeed");
     assert_eq!(normalized.diagnostics.len(), 1);
-    assert!(normalized.diagnostics[0]
-        .reason
-        .contains("unsupported trade type"));
+    assert_eq!(normalized.diagnostics[0].row, 4);
+    assert_eq!(
+        normalized.diagnostics[0].reason,
+        "unsupported trade type: trade_type='入金', order_id='bf-order-003'"
+    );
 
     let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
     assert_eq!(normalized.events, expected);

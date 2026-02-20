@@ -55,6 +55,15 @@ pub struct NormalizeResult {
     pub diagnostics: Vec<NormalizeDiagnostic>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum RowOutcome {
+    Event(Event),
+    Unsupported {
+        trade_type: String,
+        order_id: String,
+    },
+}
+
 pub fn normalize_transaction_history_csv(raw: &str) -> Result<NormalizeResult, String> {
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -80,13 +89,16 @@ pub fn normalize_transaction_history_csv(raw: &str) -> Result<NormalizeResult, S
         }
 
         match map_row(&idx, &rec, lang_headers) {
-            Ok(Some(event)) => events.push(event),
-            Ok(None) => diagnostics.push(NormalizeDiagnostic {
+            Ok(RowOutcome::Event(event)) => events.push(event),
+            Ok(RowOutcome::Unsupported {
+                trade_type,
+                order_id,
+            }) => diagnostics.push(NormalizeDiagnostic {
                 row,
                 reason: format!(
                     "unsupported trade type: trade_type='{}', order_id='{}'",
-                    sanitize(get(&idx, &rec, lang_headers[2])?),
-                    sanitize(get(&idx, &rec, lang_headers[11])?)
+                    sanitize(&trade_type),
+                    sanitize(&order_id)
                 ),
             }),
             Err(e) => return Err(format!("row {}: {}", row, e)),
@@ -100,16 +112,28 @@ fn map_row(
     idx: &HashMap<String, usize>,
     row: &StringRecord,
     h: &[&str],
-) -> Result<Option<Event>, String> {
+) -> Result<RowOutcome, String> {
+    let trade_type = get(idx, row, h[2])?.to_string();
+    let order_id = get(idx, row, h[11])?.to_string();
+
+    if trade_type != OP_BUY_JP
+        && trade_type != OP_BUY_EN
+        && trade_type != OP_SELL_JP
+        && trade_type != OP_SELL_EN
+    {
+        return Ok(RowOutcome::Unsupported {
+            trade_type,
+            order_id,
+        });
+    }
+
     let ts = parse_datetime(get(idx, row, h[0])?)?;
-    let trade_type = get(idx, row, h[2])?;
     let asset1 = get(idx, row, h[4])?.to_ascii_uppercase();
     let qty1 = parse_decimal(get(idx, row, h[5])?)?;
     let fee = parse_decimal(get(idx, row, h[6])?)?;
     let rate_jpy = parse_decimal(get(idx, row, h[7])?)?;
     let asset2 = get(idx, row, h[8])?.to_ascii_uppercase();
     let qty2 = parse_decimal(get(idx, row, h[9])?)?;
-    let order_id = get(idx, row, h[11])?;
 
     let fee_jpy = fee.abs() * rate_jpy;
 
@@ -121,7 +145,7 @@ fn map_row(
         if net_qty <= Decimal::ZERO {
             return Err(format!("buy qty must be > 0 after fee, got {}", net_qty));
         }
-        return Ok(Some(Event::Acquire {
+        return Ok(RowOutcome::Event(Event::Acquire {
             id: format!("{}:acquire", order_id),
             asset: asset1,
             qty: net_qty,
@@ -130,23 +154,19 @@ fn map_row(
         }));
     }
 
-    if trade_type == OP_SELL_JP || trade_type == OP_SELL_EN {
-        if asset2 != "JPY" {
-            return Err(format!("unsupported payment asset '{}', only JPY is supported", asset2));
-        }
-        if qty1 <= Decimal::ZERO {
-            return Err(format!("sell qty must be > 0, got {}", qty1));
-        }
-        return Ok(Some(Event::Dispose {
-            id: format!("{}:dispose", order_id),
-            asset: asset1,
-            qty: qty1,
-            jpy_proceeds: qty2.abs() - fee_jpy,
-            ts,
-        }));
+    if asset2 != "JPY" {
+        return Err(format!("unsupported payment asset '{}', only JPY is supported", asset2));
     }
-
-    Ok(None)
+    if qty1 <= Decimal::ZERO {
+        return Err(format!("sell qty must be > 0, got {}", qty1));
+    }
+    Ok(RowOutcome::Event(Event::Dispose {
+        id: format!("{}:dispose", order_id),
+        asset: asset1,
+        qty: qty1,
+        jpy_proceeds: qty2.abs() - fee_jpy,
+        ts,
+    }))
 }
 
 fn detect_headers(headers: &StringRecord) -> Result<&'static [&'static str], String> {
