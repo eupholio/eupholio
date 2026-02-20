@@ -97,8 +97,8 @@ pub fn normalize_transaction_history_csv(raw: &str) -> Result<NormalizeResult, S
                 row,
                 reason: format!(
                     "unsupported trade type: trade_type='{}', order_id='{}'",
-                    sanitize(&trade_type),
-                    sanitize(&order_id)
+                    sanitize_diagnostic_value(&trade_type),
+                    sanitize_diagnostic_value(&order_id)
                 ),
             }),
             Err(e) => return Err(format!("row {}: {}", row, e)),
@@ -216,7 +216,7 @@ fn parse_datetime(s: &str) -> Result<DateTime<Utc>, String> {
     Ok(dt.with_timezone(&Utc))
 }
 
-fn sanitize(s: &str) -> String {
+fn sanitize_diagnostic_value(s: &str) -> String {
     let mut out = String::new();
     let mut len = 0usize;
     for c in s.chars() {
