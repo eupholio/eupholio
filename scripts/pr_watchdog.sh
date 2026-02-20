@@ -63,10 +63,17 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "$(dirname "$STATE_FILE")"
 LOCK_FILE="${STATE_FILE}.lock"
 LOCK_DIR="${STATE_FILE}.lockdir"
 LOCK_MODE=""
+cleanup_lock() {
+  if [[ "$LOCK_MODE" == "flock" ]]; then
+    exec 9>&-
+  elif [[ "$LOCK_MODE" == "mkdir" ]]; then
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+}
+trap cleanup_lock EXIT
 # Prefer flock when available; fallback to mkdir lock for environments without flock.
 if command -v flock >/dev/null 2>&1; then
   exec 9>"$LOCK_FILE"
@@ -77,7 +84,6 @@ else
     sleep 0.1
   done
   LOCK_MODE="mkdir"
-  trap '[[ "$LOCK_MODE" == "mkdir" ]] && rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 fi
 
 if [[ ! -f "$STATE_FILE" ]] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
@@ -152,6 +158,7 @@ list_ok=1
 if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit "$PR_LIST_LIMIT" --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
   list_ok=0
   warn_once
+  echo "WARNING: PR list fetch failed; using potentially stale state from '$STATE_FILE'." >&2
 fi
 
 prev_state="$(cat "$STATE_FILE" 2>/dev/null || echo '{"prs":{}}')"
@@ -223,14 +230,13 @@ if [[ "$list_ok" -eq 1 ]]; then
       alerts+="$pr_number $pr_url"
       alerts+=$'\n  Reason: '
       alerts+="$reasons"
-      last_sig="$sig"
-    else
-      last_sig="$prev_sig"
     fi
 
-    # Keep previous signature if this PR had transient fetch failures.
+    # Keep previous signature only if this PR had transient fetch failures.
     if [[ "$failing_ok" -eq 0 || "$unresolved_ok" -eq 0 ]]; then
       last_sig="$prev_sig"
+    else
+      last_sig="$sig"
     fi
 
     if ! tmp_state=$(echo "$new_state" | jq --arg n "$pr_number" --argjson u "$unresolved" --argjson f "$failing" --arg sig "$last_sig" '.prs[$n]={lastUnresolvedCount:$u,lastFailingChecks:$f,lastNotifiedSignature:$sig}' 2>/dev/null); then
@@ -240,7 +246,10 @@ if [[ "$list_ok" -eq 1 ]]; then
     new_state="$tmp_state"
   done <<< "$pr_lines"
 
-  tmp_state_file=$(mktemp "$(dirname "$STATE_FILE")/pr-watchdog-state.XXXXXX")
+  if ! tmp_state_file=$(mktemp "$(dirname "$STATE_FILE")/pr-watchdog-state.XXXXXX"); then
+    echo "Failed to create temporary state file in $(dirname "$STATE_FILE")" >&2
+    exit 1
+  fi
   if ! printf '%s\n' "$new_state" > "$tmp_state_file"; then
     rm -f "$tmp_state_file"
     echo "Failed to write state file: $tmp_state_file" >&2
