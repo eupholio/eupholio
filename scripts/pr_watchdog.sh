@@ -90,8 +90,10 @@ if [[ ! -f "$STATE_FILE" ]] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
   echo '{"prs":{}}' > "$STATE_FILE"
 fi
 
-WARN=0
-warn_once() { WARN=1; }
+PARTIAL_FAILURE=0
+set_partial_failure() { PARTIAL_FAILURE=1; }
+
+NO_REPLY_SENTINEL="NO_REPLY"
 
 GQL_THREADS_FIRST100='query($owner:String!, $name:String!, $number:Int!) {
   repository(owner:$owner, name:$name) {
@@ -157,7 +159,7 @@ pr_lines=""
 list_ok=1
 if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit "$PR_LIST_LIMIT" --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
   list_ok=0
-  warn_once
+  set_partial_failure
   echo "WARNING: PR list fetch failed; using potentially stale state from '$STATE_FILE'." >&2
 fi
 
@@ -168,15 +170,21 @@ alerts=""
 if [[ "$list_ok" -eq 1 ]]; then
   while IFS=$'\t' read -r pr_number pr_url; do
     [[ -z "${pr_number:-}" ]] && continue
+    if ! [[ "$pr_number" =~ ^[0-9]+$ ]]; then
+      set_partial_failure
+      echo "WARNING: Skipping PR with invalid number '$pr_number' (url: $pr_url)" >&2
+      continue
+    fi
 
-    prev_unresolved=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastUnresolvedCount // 0' 2>/dev/null || { warn_once; echo 0; })
-    prev_failing=$(echo "$prev_state" | jq -c --arg n "$pr_number" '.prs[$n].lastFailingChecks // []' 2>/dev/null || { warn_once; echo '[]'; })
-    prev_sig=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastNotifiedSignature // ""' 2>/dev/null || { warn_once; echo ""; })
+    prev_unresolved=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastUnresolvedCount // 0' 2>/dev/null || { set_partial_failure; echo 0; })
+    prev_failing=$(echo "$prev_state" | jq -c --arg n "$pr_number" '.prs[$n].lastFailingChecks // []' 2>/dev/null || { set_partial_failure; echo '[]'; })
+    prev_sig=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastNotifiedSignature // ""' 2>/dev/null || { set_partial_failure; echo ""; })
 
     failing_ok=1
     failing='[]'
     if ! failing=$(gh pr view "$pr_number" --repo "$REPO" --json statusCheckRollup --jq '
       [.statusCheckRollup[]?
+        # Intentionally treat CANCELLED as actionable failure per project policy.
         | select(.conclusion == "FAILURE"
               or .conclusion == "STARTUP_FAILURE"
               or .conclusion == "TIMED_OUT"
@@ -184,12 +192,12 @@ if [[ "$list_ok" -eq 1 ]]; then
               or .conclusion == "ACTION_REQUIRED")
         | (.name // .workflowName // "unknown")]
       | unique | sort' 2>/dev/null); then
-      warn_once
+      set_partial_failure
       failing_ok=0
       failing="$prev_failing"
     fi
     if ! echo "$failing" | jq -e . >/dev/null 2>&1; then
-      warn_once
+      set_partial_failure
       failing_ok=0
       failing="$prev_failing"
     fi
@@ -197,17 +205,20 @@ if [[ "$list_ok" -eq 1 ]]; then
     unresolved_ok=1
     unresolved="$prev_unresolved"
     if ! unresolved=$(count_unresolved_threads "$pr_number"); then
-      warn_once
+      set_partial_failure
       unresolved_ok=0
       unresolved="$prev_unresolved"
     fi
     if ! [[ "$unresolved" =~ ^[0-9]+$ ]]; then
-      warn_once
+      set_partial_failure
       unresolved_ok=0
       unresolved="$prev_unresolved"
     fi
 
-    new_fail_count=$(jq -n --argjson cur "$failing" --argjson prev "$prev_failing" '($cur - $prev) | length' 2>/dev/null || echo 0)
+    if ! new_fail_count=$(jq -n --argjson cur "$failing" --argjson prev "$prev_failing" '($cur - $prev) | length' 2>/dev/null); then
+      set_partial_failure
+      new_fail_count=0
+    fi
 
     need_alert=0
     reasons=""
@@ -222,7 +233,7 @@ if [[ "$list_ok" -eq 1 ]]; then
     fi
 
     if ! sig=$(jq -nc --arg n "$pr_number" --argjson f "$failing" --argjson u "$unresolved" '{prNumber:($n|tonumber),failingChecks:$f,unresolvedCount:$u}' 2>/dev/null); then
-      warn_once
+      set_partial_failure
       sig="$prev_sig"
     fi
     if [[ "$need_alert" -eq 1 ]] && [[ "$sig" != "$prev_sig" ]]; then
@@ -240,7 +251,7 @@ if [[ "$list_ok" -eq 1 ]]; then
     fi
 
     if ! tmp_state=$(echo "$new_state" | jq --arg n "$pr_number" --argjson u "$unresolved" --argjson f "$failing" --arg sig "$last_sig" '.prs[$n]={lastUnresolvedCount:$u,lastFailingChecks:$f,lastNotifiedSignature:$sig}' 2>/dev/null); then
-      warn_once
+      set_partial_failure
       continue
     fi
     new_state="$tmp_state"
@@ -264,8 +275,9 @@ fi
 
 if [[ -n "$alerts" ]]; then
   echo "Action required PRs detected:${alerts}"
-elif [[ "$WARN" -eq 1 ]]; then
+elif [[ "$PARTIAL_FAILURE" -eq 1 ]]; then
   echo "PR watchdog had partial errors (continuing)"
 else
-  echo "NO_REPLY"
+  # Contract: heartbeat/cron wrapper treats this sentinel as "no user-facing update".
+  echo "$NO_REPLY_SENTINEL"
 fi
