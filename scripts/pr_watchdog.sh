@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO="${REPO:-eupholio/eupholio}"
+PR_LIST_LIMIT="${PR_LIST_LIMIT:-200}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$REPO_ROOT/.." && pwd)}"
 
@@ -9,10 +10,18 @@ if ! [[ "$REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
   exit 1
 fi
+if ! [[ "$PR_LIST_LIMIT" =~ ^[0-9]+$ ]] || [[ "$PR_LIST_LIMIT" -le 0 ]]; then
+  echo "Invalid PR_LIST_LIMIT: '$PR_LIST_LIMIT'. Expected positive integer." >&2
+  exit 1
+fi
 
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
 
+# STATE_FILE priority:
+# 1) explicit STATE_FILE
+# 2) $WORKSPACE_ROOT/memory (shared workspace)
+# 3) cache fallback ($XDG_CACHE_HOME or $TMPDIR)
 if [[ -n "${STATE_FILE:-}" ]]; then
   :
 else
@@ -47,9 +56,19 @@ fi
 
 mkdir -p "$(dirname "$STATE_FILE")"
 LOCK_FILE="${STATE_FILE}.lock"
-exec 9>"$LOCK_FILE"
+LOCK_DIR="${STATE_FILE}.lockdir"
+LOCK_MODE=""
+# Prefer flock when available; fallback to mkdir lock for environments without flock.
 if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_FILE"
   flock -x 9
+  LOCK_MODE="flock"
+else
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    sleep 0.1
+  done
+  LOCK_MODE="mkdir"
+  trap '[[ "$LOCK_MODE" == "mkdir" ]] && rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 fi
 
 if [[ ! -f "$STATE_FILE" ]] || ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
@@ -99,7 +118,7 @@ count_unresolved_threads() {
 
 pr_lines=""
 list_ok=1
-if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit 200 --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
+if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit "$PR_LIST_LIMIT" --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
   list_ok=0
   warn_once
 fi
@@ -190,7 +209,16 @@ if [[ "$list_ok" -eq 1 ]]; then
   done <<< "$pr_lines"
 
   tmp_state_file=$(mktemp "$(dirname "$STATE_FILE")/pr-watchdog-state.XXXXXX")
-  printf '%s\n' "$new_state" > "$tmp_state_file" && mv "$tmp_state_file" "$STATE_FILE"
+  if ! printf '%s\n' "$new_state" > "$tmp_state_file"; then
+    rm -f "$tmp_state_file"
+    echo "Failed to write state file: $tmp_state_file" >&2
+    exit 1
+  fi
+  if ! mv "$tmp_state_file" "$STATE_FILE"; then
+    rm -f "$tmp_state_file"
+    echo "Failed to move state file into place: $STATE_FILE" >&2
+    exit 1
+  fi
 fi
 
 if [[ -n "$alerts" ]]; then
