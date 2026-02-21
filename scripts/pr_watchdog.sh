@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO="${REPO:-eupholio/eupholio}"
 PR_LIST_LIMIT="${PR_LIST_LIMIT:-200}"
+MAX_THREAD_PAGES="${MAX_THREAD_PAGES:-100}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$REPO_ROOT/.." && pwd)}"
 
@@ -16,6 +17,10 @@ if ! [[ "$PR_LIST_LIMIT" =~ ^[0-9]+$ ]]; then
 fi
 if [[ "$PR_LIST_LIMIT" -le 0 ]]; then
   echo "Invalid PR_LIST_LIMIT: '$PR_LIST_LIMIT'. Expected positive integer." >&2
+  exit 1
+fi
+if ! [[ "$MAX_THREAD_PAGES" =~ ^[0-9]+$ ]] || [[ "$MAX_THREAD_PAGES" -le 0 ]]; then
+  echo "Invalid MAX_THREAD_PAGES: '$MAX_THREAD_PAGES'. Expected positive integer." >&2
   exit 1
 fi
 
@@ -133,8 +138,13 @@ count_unresolved_threads() {
   local pr_number="$1"
   local after=""
   local total=0
+  local pages=0
 
   while :; do
+    pages=$((pages + 1))
+    if (( pages > MAX_THREAD_PAGES )); then
+      return 1
+    fi
     local page
     if [[ -z "$after" ]]; then
       if ! page=$(gh api graphql \
@@ -262,13 +272,29 @@ if [[ "$list_ok" -eq 1 ]]; then
       set_partial_failure
       sig="$prev_sig"
     fi
-    norm_sig=$(printf '%s' "$sig" | jq -cS '.' 2>/dev/null || printf '%s' "$sig")
-    norm_prev_sig=$(printf '%s' "$prev_sig" | jq -cS '.' 2>/dev/null || printf '%s' "$prev_sig")
-    if [[ "$need_alert" -eq 1 ]] && [[ "$norm_sig" != "$norm_prev_sig" ]]; then
-      alerts+=$'\n- PR #'
-      alerts+="$pr_number $pr_url"
-      alerts+=$'\n  Reason: '
-      alerts+="$reasons"
+    norm_sig_ok=0
+    norm_prev_sig_ok=0
+    if norm_sig_tmp=$(printf '%s' "$sig" | jq -cS '.' 2>/dev/null); then
+      norm_sig="$norm_sig_tmp"
+      norm_sig_ok=1
+    else
+      set_partial_failure
+      norm_sig="$sig"
+    fi
+    if norm_prev_sig_tmp=$(printf '%s' "$prev_sig" | jq -cS '.' 2>/dev/null); then
+      norm_prev_sig="$norm_prev_sig_tmp"
+      norm_prev_sig_ok=1
+    else
+      set_partial_failure
+      norm_prev_sig="$prev_sig"
+    fi
+    if [[ "$need_alert" -eq 1 ]]; then
+      if [[ "$norm_sig_ok" -eq 0 || "$norm_prev_sig_ok" -eq 0 || "$norm_sig" != "$norm_prev_sig" ]]; then
+        alerts+=$'\n- PR #'
+        alerts+="$pr_number $pr_url"
+        alerts+=$'\n  Reason: '
+        alerts+="$reasons"
+      fi
     fi
 
     # Keep previous signature only if this PR had transient fetch failures.
