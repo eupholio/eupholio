@@ -6,7 +6,7 @@ PR_LIST_LIMIT="${PR_LIST_LIMIT:-200}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$REPO_ROOT/.." && pwd)}"
 
-if ! [[ "$REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]; then
+if ! [[ "$REPO" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
   exit 1
 fi
@@ -49,7 +49,7 @@ else
       rm -f "$DEFAULT_STATE_DIR_FALLBACK/.pr_watchdog_write_test" 2>/dev/null || true
       STATE_FILE="$DEFAULT_STATE_DIR_FALLBACK/pr-watchdog-state.json"
     else
-      echo "Failed to find a writable directory for pr_watchdog state file." >&2
+      echo "Failed to find a writable directory for 'pr_watchdog' state file." >&2
       exit 1
     fi
   fi
@@ -118,7 +118,7 @@ GQL_THREADS_FIRST100='query($owner:String!, $name:String!, $number:Int!) {
   }
 }'
 
-GQL_THREADS_FIRST100_AFTER='query($owner:String!, $name:String!, $number:Int!, $after:String) {
+GQL_THREADS_FIRST100_AFTER='query($owner:String!, $name:String!, $number:Int!, $after:String!) {
   repository(owner:$owner, name:$name) {
     pullRequest(number:$number) {
       reviewThreads(first:100, after:$after) {
