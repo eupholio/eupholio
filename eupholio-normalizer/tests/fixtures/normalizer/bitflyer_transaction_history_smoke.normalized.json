@@ -1,0 +1,18 @@
+[
+  {
+    "type": "Acquire",
+    "id": "bf-order-001:acquire",
+    "asset": "BTC",
+    "qty": "0.00999",
+    "jpy_cost": "5005.00000",
+    "ts": "2026-01-01T03:00:00Z"
+  },
+  {
+    "type": "Dispose",
+    "id": "bf-order-002:dispose",
+    "asset": "BTC",
+    "qty": "0.00999",
+    "jpy_proceeds": "6986.00000",
+    "ts": "2026-01-02T03:00:00Z"
+  }
+]

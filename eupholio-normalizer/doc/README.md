@@ -16,3 +16,5 @@ Documentation for source-specific normalization into `eupholio-core::event::Even
   - Scoped plan for adding Received/Sent transfer mapping in Coincheck
 - [21-normalizer-coincheck-phase4-scope.md](./21-normalizer-coincheck-phase4-scope.md)
   - Scoped plan for Deposit/Withdrawal (JPY) transfer mapping in Coincheck
+- [22-normalizer-bitflyer-phase1-trade-mapping.md](./22-normalizer-bitflyer-phase1-trade-mapping.md)
+  - Minimal BitFlyer phase-1 mapping for buy/sell trade rows

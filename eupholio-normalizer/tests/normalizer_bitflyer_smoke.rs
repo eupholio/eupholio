@@ -1,0 +1,71 @@
+use eupholio_core::config::{Config, CostMethod};
+use eupholio_core::event::Event;
+use eupholio_normalizer::bitflyer::normalize_transaction_history_csv;
+
+#[test]
+fn bitflyer_smoke_source_to_normalized_to_calculate() {
+    let raw = include_str!("fixtures/normalizer/bitflyer_transaction_history_smoke.csv");
+    let expected_raw = include_str!("fixtures/normalizer/bitflyer_transaction_history_smoke.normalized.json");
+
+    let normalized = normalize_transaction_history_csv(raw).expect("normalization should succeed");
+    assert_eq!(normalized.diagnostics.len(), 1);
+    assert_eq!(normalized.diagnostics[0].row, 4);
+    assert_eq!(
+        normalized.diagnostics[0].reason,
+        "unsupported trade type: trade_type='入金', order_id='bf-order-003'"
+    );
+
+    let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
+    assert_eq!(normalized.events, expected);
+
+    let report = eupholio_core::calculate(
+        Config {
+            method: CostMethod::MovingAverage,
+            tax_year: 2026,
+            rounding: Default::default(),
+        },
+        &normalized.events,
+    );
+
+    assert_eq!(report.realized_pnl_jpy.to_string(), "1981");
+}
+
+#[test]
+fn bitflyer_errors_on_missing_header_and_non_jpy_payment() {
+    let missing = "取引日時,通貨,取引種別\n2026/01/01 00:00:00,BTC/JPY,買い\n";
+    assert!(normalize_transaction_history_csv(missing)
+        .expect_err("missing header should fail")
+        .contains("missing required header"));
+
+    let non_jpy = "取引日時,通貨,取引種別,取引価格,通貨1,通貨1数量,手数料,通貨1の対円レート,通貨2,通貨2数量,自己・媒介,注文 ID,備考\n\
+2026/01/01 00:00:00,BTC/USD,買い,500000,BTC,0.01,-0.00001,500000,USD,-5000,媒介,bf-order-004,\n";
+    assert!(normalize_transaction_history_csv(non_jpy)
+        .expect_err("non-jpy should fail")
+        .contains("only JPY is supported"));
+}
+
+#[test]
+fn bitflyer_errors_on_invalid_decimal_and_datetime() {
+    let invalid_decimal = "取引日時,通貨,取引種別,取引価格,通貨1,通貨1数量,手数料,通貨1の対円レート,通貨2,通貨2数量,自己・媒介,注文 ID,備考\n\
+2026/01/01 00:00:00,BTC/JPY,買い,500000,BTC,not-a-number,-0.00001,500000,JPY,-5000,媒介,bf-order-005,\n";
+    assert!(normalize_transaction_history_csv(invalid_decimal)
+        .expect_err("invalid decimal should fail")
+        .contains("invalid decimal"));
+
+    let invalid_datetime = "取引日時,通貨,取引種別,取引価格,通貨1,通貨1数量,手数料,通貨1の対円レート,通貨2,通貨2数量,自己・媒介,注文 ID,備考\n\
+invalid-datetime,BTC/JPY,買い,500000,BTC,0.01,-0.00001,500000,JPY,-5000,媒介,bf-order-006,\n";
+    assert!(normalize_transaction_history_csv(invalid_datetime)
+        .expect_err("invalid datetime should fail")
+        .contains("invalid datetime"));
+}
+
+#[test]
+fn bitflyer_accepts_english_headers() {
+    let english_csv = "Trade Date,Product,Trade Type,Traded Price,Currency 1,Amount (Currency 1),Fee,JPY Rate (Currency 1),Currency 2,Amount (Currency 2),Counter Party,Order ID,Details\n\
+2026/01/01 00:00:00,BTC/JPY,BUY,500000,BTC,0.01,-0.00001,500000,JPY,-5000,AGENCY,bf-order-007,\n";
+
+    let normalized = normalize_transaction_history_csv(english_csv)
+        .expect("normalization should succeed with english headers");
+    assert_eq!(normalized.diagnostics.len(), 0);
+    assert_eq!(normalized.events.len(), 1);
+}
