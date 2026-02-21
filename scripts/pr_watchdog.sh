@@ -11,11 +11,7 @@ if ! [[ "$REPO" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
   exit 1
 fi
-if ! [[ "$PR_LIST_LIMIT" =~ ^[0-9]+$ ]]; then
-  echo "Invalid PR_LIST_LIMIT: '$PR_LIST_LIMIT'. Expected positive integer." >&2
-  exit 1
-fi
-if [[ "$PR_LIST_LIMIT" -le 0 ]]; then
+if ! [[ "$PR_LIST_LIMIT" =~ ^[1-9][0-9]*$ ]]; then
   echo "Invalid PR_LIST_LIMIT: '$PR_LIST_LIMIT'. Expected positive integer." >&2
   exit 1
 fi
@@ -222,6 +218,8 @@ if [[ "$list_ok" -eq 1 ]]; then
     failing='[]'
     if ! failing=$(gh pr view "$pr_number" --repo "$REPO" --json statusCheckRollup --jq '
       [.statusCheckRollup[]?
+        # Only completed, actionable failures are included; pending/in-progress
+        # checks have null conclusion and are intentionally ignored.
         | select(.conclusion == "FAILURE"
               or .conclusion == "STARTUP_FAILURE"
               or .conclusion == "TIMED_OUT"
@@ -260,7 +258,12 @@ if [[ "$list_ok" -eq 1 ]]; then
     reasons=""
     if [[ "$new_fail_count" -gt 0 ]]; then
       need_alert=1
-      reasons="New failing checks: $(echo "$failing" | jq -r 'join(", ")')"
+      new_failing_names=$(echo "$failing" | jq -r 'join(", ")' 2>/dev/null || printf '')
+      if [[ -n "$new_failing_names" ]]; then
+        reasons="New failing checks: $new_failing_names"
+      else
+        reasons="New failing checks detected (unable to list names)"
+      fi
     fi
     if [[ "$unresolved" -gt "$prev_unresolved" ]]; then
       need_alert=1
@@ -329,7 +332,7 @@ if [[ "$list_ok" -eq 1 ]]; then
 fi
 
 if [[ -n "$alerts" ]]; then
-  echo "Action required PRs detected${alerts}"
+  echo "Action required PRs detected:${alerts}"
 elif [[ "$PARTIAL_FAILURE" -eq 1 ]]; then
   echo "PR watchdog had partial errors (continuing)"
 else
