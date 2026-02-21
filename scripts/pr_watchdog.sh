@@ -66,6 +66,7 @@ fi
 LOCK_FILE="${STATE_FILE}.lock"
 LOCK_DIR="${STATE_FILE}.lockdir"
 LOCK_MODE=""
+LOCK_WAIT_TIMEOUT="${LOCK_WAIT_TIMEOUT:-30}"
 cleanup_lock() {
   if [[ "$LOCK_MODE" == "flock" ]]; then
     exec 9>&-
@@ -80,7 +81,14 @@ if command -v flock >/dev/null 2>&1; then
   flock -x 9
   LOCK_MODE="flock"
 else
+  start_time="$(date +%s)"
   while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    now="$(date +%s)"
+    elapsed=$((now - start_time))
+    if (( elapsed >= LOCK_WAIT_TIMEOUT )); then
+      echo "Failed to acquire mkdir lock '$LOCK_DIR' after ${LOCK_WAIT_TIMEOUT}s" >&2
+      exit 1
+    fi
     sleep 0.1
   done
   LOCK_MODE="mkdir"
@@ -139,16 +147,22 @@ count_unresolved_threads() {
     fi
 
     local page_unresolved
-    page_unresolved=$(echo "$page" | jq '[.data.repository.pullRequest.reviewThreads.nodes[]? | select(.isResolved==false)] | length')
+    if ! page_unresolved=$(echo "$page" | jq '[.data.repository.pullRequest.reviewThreads.nodes[]? | select(.isResolved==false)] | length' 2>/dev/null); then
+      return 1
+    fi
     total=$((total + page_unresolved))
 
     local has_next
-    has_next=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage // false')
+    if ! has_next=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage // false' 2>/dev/null); then
+      return 1
+    fi
     if [[ "$has_next" != "true" ]]; then
       break
     fi
 
-    after=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // empty')
+    if ! after=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // empty' 2>/dev/null); then
+      return 1
+    fi
     [[ -z "$after" ]] && break
   done
 
@@ -167,7 +181,7 @@ prev_state="$(cat "$STATE_FILE" 2>/dev/null || echo '{"prs":{}}')"
 new_state='{"prs":{}}'
 alerts=""
 
-if [[ "$list_ok" -eq 1 ]]; then
+if [[ "$list_ok" -eq 1 && -n "$pr_lines" ]]; then
   while IFS=$'\t' read -r pr_number pr_url; do
     [[ -z "${pr_number:-}" ]] && continue
     if ! [[ "$pr_number" =~ ^[0-9]+$ ]]; then
@@ -236,7 +250,9 @@ if [[ "$list_ok" -eq 1 ]]; then
       set_partial_failure
       sig="$prev_sig"
     fi
-    if [[ "$need_alert" -eq 1 ]] && [[ "$sig" != "$prev_sig" ]]; then
+    norm_sig=$(printf '%s' "$sig" | jq -cS '.' 2>/dev/null || printf '%s' "$sig")
+    norm_prev_sig=$(printf '%s' "$prev_sig" | jq -cS '.' 2>/dev/null || printf '%s' "$prev_sig")
+    if [[ "$need_alert" -eq 1 ]] && [[ "$norm_sig" != "$norm_prev_sig" ]]; then
       alerts+=$'\n- PR #'
       alerts+="$pr_number $pr_url"
       alerts+=$'\n  Reason: '
