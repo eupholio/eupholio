@@ -181,8 +181,9 @@ prev_state="$(cat "$STATE_FILE" 2>/dev/null || echo '{"prs":{}}')"
 new_state='{"prs":{}}'
 alerts=""
 
-if [[ "$list_ok" -eq 1 && -n "$pr_lines" ]]; then
-  while IFS=$'\t' read -r pr_number pr_url; do
+if [[ "$list_ok" -eq 1 ]]; then
+  if [[ -n "$pr_lines" ]]; then
+    while IFS=$'\t' read -r pr_number pr_url; do
     [[ -z "${pr_number:-}" ]] && continue
     if ! [[ "$pr_number" =~ ^[0-9]+$ ]]; then
       set_partial_failure
@@ -190,9 +191,18 @@ if [[ "$list_ok" -eq 1 && -n "$pr_lines" ]]; then
       continue
     fi
 
-    prev_unresolved=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastUnresolvedCount // 0' 2>/dev/null || { set_partial_failure; echo 0; })
-    prev_failing=$(echo "$prev_state" | jq -c --arg n "$pr_number" '.prs[$n].lastFailingChecks // []' 2>/dev/null || { set_partial_failure; echo '[]'; })
-    prev_sig=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastNotifiedSignature // ""' 2>/dev/null || { set_partial_failure; echo ""; })
+    if ! prev_unresolved=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastUnresolvedCount // 0' 2>/dev/null); then
+      set_partial_failure
+      prev_unresolved=0
+    fi
+    if ! prev_failing=$(echo "$prev_state" | jq -c --arg n "$pr_number" '.prs[$n].lastFailingChecks // []' 2>/dev/null); then
+      set_partial_failure
+      prev_failing='[]'
+    fi
+    if ! prev_sig=$(echo "$prev_state" | jq -r --arg n "$pr_number" '.prs[$n].lastNotifiedSignature // ""' 2>/dev/null); then
+      set_partial_failure
+      prev_sig=""
+    fi
 
     failing_ok=1
     failing='[]'
@@ -269,7 +279,8 @@ if [[ "$list_ok" -eq 1 && -n "$pr_lines" ]]; then
       continue
     fi
     new_state="$tmp_state"
-  done <<< "$pr_lines"
+    done <<< "$pr_lines"
+  fi
 
   if ! tmp_state_file=$(mktemp "$(dirname "$STATE_FILE")/pr-watchdog-state.XXXXXX"); then
     echo "Failed to create temporary state file in $(dirname "$STATE_FILE")" >&2
@@ -288,7 +299,7 @@ if [[ "$list_ok" -eq 1 && -n "$pr_lines" ]]; then
 fi
 
 if [[ -n "$alerts" ]]; then
-  echo "Action required PRs detected:${alerts}"
+  echo "Action required PRs detected${alerts}"
 elif [[ "$PARTIAL_FAILURE" -eq 1 ]]; then
   echo "PR watchdog had partial errors (continuing)"
 else
