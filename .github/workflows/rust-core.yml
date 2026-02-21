@@ -4,27 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'eupholio-core/**'
-      - 'eupholio-normalizer/**'
-      - 'scripts/compare_go_rust.py'
-      - 'scripts/go_cost_compare.go'
-      - 'scripts/check_validation_codes.py'
-      - 'scripts/parity_fixture_*.json'
-      - '.github/workflows/rust-core.yml'
   pull_request:
-    paths:
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'eupholio-core/**'
-      - 'eupholio-normalizer/**'
-      - 'scripts/compare_go_rust.py'
-      - 'scripts/go_cost_compare.go'
-      - 'scripts/check_validation_codes.py'
-      - 'scripts/parity_fixture_*.json'
-      - '.github/workflows/rust-core.yml'
 
 jobs:
   test-rust-core:
