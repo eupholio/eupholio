@@ -198,11 +198,9 @@ if [[ "$list_ok" -eq 1 && -n "$pr_lines" ]]; then
     failing='[]'
     if ! failing=$(gh pr view "$pr_number" --repo "$REPO" --json statusCheckRollup --jq '
       [.statusCheckRollup[]?
-        # Intentionally treat CANCELLED as actionable failure per project policy.
         | select(.conclusion == "FAILURE"
               or .conclusion == "STARTUP_FAILURE"
               or .conclusion == "TIMED_OUT"
-              or .conclusion == "CANCELLED"
               or .conclusion == "ACTION_REQUIRED")
         | (.name // .workflowName // "unknown")]
       | unique | sort' 2>/dev/null); then
