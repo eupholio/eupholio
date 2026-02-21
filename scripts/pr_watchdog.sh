@@ -10,7 +10,11 @@ if ! [[ "$REPO" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
   exit 1
 fi
-if ! [[ "$PR_LIST_LIMIT" =~ ^[0-9]+$ ]] || [[ "$PR_LIST_LIMIT" -le 0 ]]; then
+if ! [[ "$PR_LIST_LIMIT" =~ ^[0-9]+$ ]]; then
+  echo "Invalid PR_LIST_LIMIT: '$PR_LIST_LIMIT'. Expected positive integer." >&2
+  exit 1
+fi
+if [[ "$PR_LIST_LIMIT" -le 0 ]]; then
   echo "Invalid PR_LIST_LIMIT: '$PR_LIST_LIMIT'. Expected positive integer." >&2
   exit 1
 fi
