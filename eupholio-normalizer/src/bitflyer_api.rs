@@ -307,6 +307,9 @@ pub fn filter_executions_by_time(
 
 pub fn build_executions_path(opts: &FetchOptions) -> Result<String, String> {
     let product_code = validate_product_code(&opts.product_code)?;
+    if opts.count == 0 {
+        return Err("count must be > 0".to_string());
+    }
 
     let mut q = vec![
         format!("product_code={}", product_code),

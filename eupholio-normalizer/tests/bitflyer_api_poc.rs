@@ -94,6 +94,18 @@ fn bitflyer_api_build_executions_path_with_paging() {
 }
 
 #[test]
+fn bitflyer_api_build_executions_path_rejects_zero_count() {
+    let err = build_executions_path(&FetchOptions {
+        product_code: "BTC_JPY".to_string(),
+        count: 0,
+        before: None,
+        after: None,
+    })
+    .expect_err("count=0 should fail");
+    assert!(err.contains("count must be > 0"));
+}
+
+#[test]
 fn bitflyer_api_filter_executions_by_time_window() {
     let raw = r#"[
       {"id": 1, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-01T00:00:00Z"},
