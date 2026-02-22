@@ -20,13 +20,13 @@ fn bitflyer_api_sign_request_is_deterministic() {
 fn bitflyer_api_normalize_executions_to_events() {
     let raw = r#"[
       {"id": 1001, "side": "BUY", "price": "1000000", "size": "0.01", "exec_date": "2026-01-01T00:00:00Z", "commission": "0.0001"},
-      {"id": 1002, "side": "SELL", "price": "1200000", "size": "0.005", "exec_date": "2026-01-02T00:00:00Z", "commission": "120"},
+      {"id": 1002, "side": "SELL", "price": "1200000", "size": "0.005", "exec_date": "2026-01-02T00:00:00Z", "commission": "0.0001"},
       {"id": 1003, "side": "OTHER", "price": "1", "size": "1", "exec_date": "2026-01-03T00:00:00Z"}
     ]"#;
 
     let executions: Vec<Execution> = serde_json::from_str(raw).expect("json should parse");
     let normalized =
-        normalize_executions(&executions, "BTC_JPY").expect("normalization should work");
+        normalize_executions(&executions, "btc_jpy").expect("normalization should work");
 
     assert_eq!(normalized.events.len(), 2);
     assert_eq!(normalized.diagnostics.len(), 1);
@@ -45,7 +45,7 @@ fn bitflyer_api_normalize_executions_to_events() {
             assert_eq!(id, "bfexec-1001:acquire");
             assert_eq!(asset, "BTC");
             assert_eq!(qty.to_string(), "0.0099");
-            assert_eq!(jpy_cost.to_string(), "10000.00");
+            assert_eq!(jpy_cost.to_string(), "10100.0000");
         }
         _ => panic!("expected acquire"),
     }
@@ -61,7 +61,7 @@ fn bitflyer_api_normalize_executions_to_events() {
             assert_eq!(id, "bfexec-1002:dispose");
             assert_eq!(asset, "BTC");
             assert_eq!(qty.to_string(), "0.005");
-            assert_eq!(jpy_proceeds.to_string(), "5880.000");
+            assert_eq!(jpy_proceeds.to_string(), "5880.0000");
         }
         _ => panic!("expected dispose"),
     }
