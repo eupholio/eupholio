@@ -105,7 +105,10 @@ pub fn normalize_transaction_history_csv(raw: &str) -> Result<NormalizeResult, S
         }
     }
 
-    Ok(NormalizeResult { events, diagnostics })
+    Ok(NormalizeResult {
+        events,
+        diagnostics,
+    })
 }
 
 fn map_row(
@@ -139,7 +142,10 @@ fn map_row(
 
     if trade_type == OP_BUY_JP || trade_type == OP_BUY_EN {
         if asset2 != "JPY" {
-            return Err(format!("unsupported payment asset '{}', only JPY is supported", asset2));
+            return Err(format!(
+                "unsupported payment asset '{}', only JPY is supported",
+                asset2
+            ));
         }
         let net_qty = qty1 + fee;
         if net_qty <= Decimal::ZERO {
@@ -155,7 +161,10 @@ fn map_row(
     }
 
     if asset2 != "JPY" {
-        return Err(format!("unsupported payment asset '{}', only JPY is supported", asset2));
+        return Err(format!(
+            "unsupported payment asset '{}', only JPY is supported",
+            asset2
+        ));
     }
     if qty1 <= Decimal::ZERO {
         return Err(format!("sell qty must be > 0, got {}", qty1));
@@ -194,7 +203,11 @@ fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {
         .collect()
 }
 
-fn get<'a>(idx: &HashMap<String, usize>, row: &'a StringRecord, key: &str) -> Result<&'a str, String> {
+fn get<'a>(
+    idx: &HashMap<String, usize>,
+    row: &'a StringRecord,
+    key: &str,
+) -> Result<&'a str, String> {
     let i = *idx
         .get(key)
         .ok_or_else(|| format!("missing required header {}", key))?;

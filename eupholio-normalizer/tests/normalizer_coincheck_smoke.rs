@@ -10,8 +10,12 @@ fn coincheck_smoke_source_to_normalized_to_calculate() {
     let normalized = normalize_trade_history_csv(raw).expect("normalization should succeed");
     assert!(normalized.diagnostics.is_empty());
 
-    let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
-    assert_eq!(normalized.events, expected, "normalized output should match fixture");
+    let expected: Vec<Event> =
+        serde_json::from_str(expected_raw).expect("fixture json should be valid");
+    assert_eq!(
+        normalized.events, expected,
+        "normalized output should match fixture"
+    );
 
     let report = eupholio_core::calculate(
         Config {
@@ -23,7 +27,10 @@ fn coincheck_smoke_source_to_normalized_to_calculate() {
     );
 
     assert_eq!(report.realized_pnl_jpy.to_string(), "198800");
-    let btc = report.positions.get("BTC").expect("btc position should exist");
+    let btc = report
+        .positions
+        .get("BTC")
+        .expect("btc position should exist");
     assert_eq!(btc.qty.to_string(), "0.0");
 }
 
@@ -38,9 +45,7 @@ cc1,2026-01-01 00:00:00 +0900,Completed trading contracts,\"1,000\",JPY,,,,\"Rat
 
     match &normalized.events[0] {
         Event::Dispose {
-            qty,
-            jpy_proceeds,
-            ..
+            qty, jpy_proceeds, ..
         } => {
             assert_eq!(qty.to_string(), "0.1");
             assert_eq!(jpy_proceeds.to_string(), "1000");
@@ -57,7 +62,8 @@ cc1,2026-01-01 00:00:00 +0900,Completed trading contracts,1,BTC,,,0\n";
         .expect_err("missing header should fail")
         .contains("missing required header comment"));
 
-    let bad_comment = "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
+    let bad_comment =
+        "id,time,operation,amount,trading_currency,price,original_currency,fee,comment\n\
 cc2,2026-01-01 00:00:00 +0900,Completed trading contracts,1,BTC,,,0,broken\n";
     assert!(normalize_trade_history_csv(bad_comment)
         .expect_err("bad comment should fail")

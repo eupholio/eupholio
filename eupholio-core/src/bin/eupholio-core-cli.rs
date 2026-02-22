@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, HashSet}, io::{self, Read}};
+use std::{
+    collections::{HashMap, HashSet},
+    io::{self, Read},
+};
 
 use clap::{Parser, Subcommand};
 use eupholio_core::{
@@ -127,7 +130,11 @@ impl ValidationResult {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "eupholio-core-cli", version, about = "Eupholio core calculator CLI")]
+#[command(
+    name = "eupholio-core-cli",
+    version,
+    about = "Eupholio core calculator CLI"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -163,8 +170,8 @@ fn is_moving_average_per_year(rounding: &RoundingPolicy, method: CostMethod) -> 
 }
 
 fn run(input: Input) -> Result<Report, io::Error> {
-    let method = parse_method(&input.method)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    let method =
+        parse_method(&input.method).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
     let rounding = input.rounding.unwrap_or_default();
 
     if is_moving_average_per_year(&rounding, method) {
@@ -241,8 +248,7 @@ fn validate_input(input: &Input) -> ValidationResult {
     {
         out.push_error(
             ValidationCode::RoundingPerYearUnsupportedForMovingAverage,
-            "rounding.timing=per_year is not supported for method=moving_average"
-                .to_string(),
+            "rounding.timing=per_year is not supported for method=moving_average".to_string(),
         );
     }
 
@@ -295,13 +301,21 @@ fn validate_input(input: &Input) -> ValidationResult {
         if e.year() != input.tax_year {
             out.push_warning(
                 ValidationCode::EventYearMismatch,
-                format!("event year {} does not match tax_year {} (id={})", e.year(), input.tax_year, e.id()),
+                format!(
+                    "event year {} does not match tax_year {} (id={})",
+                    e.year(),
+                    input.tax_year,
+                    e.id()
+                ),
             );
         }
 
         let id = e.id().to_string();
         if !ids.insert(id.clone()) {
-            out.push_error(ValidationCode::DuplicateEventId, format!("duplicate event id: {id}"));
+            out.push_error(
+                ValidationCode::DuplicateEventId,
+                format!("duplicate event id: {id}"),
+            );
         }
 
         match e {
@@ -320,9 +334,7 @@ fn validate_input(input: &Input) -> ValidationResult {
                 }
             }
             Event::Dispose {
-                qty,
-                jpy_proceeds,
-                ..
+                qty, jpy_proceeds, ..
             } => {
                 if *qty <= Decimal::ZERO {
                     out.push_error(

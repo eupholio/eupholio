@@ -42,7 +42,12 @@ pub fn calculate_total_average_with_carry(
     events: &[Event],
     carry_in: &HashMap<String, CarryIn>,
 ) -> Report {
-    calculate_total_average_with_carry_and_rounding(tax_year, events, carry_in, RoundingPolicy::default())
+    calculate_total_average_with_carry_and_rounding(
+        tax_year,
+        events,
+        carry_in,
+        RoundingPolicy::default(),
+    )
 }
 
 pub fn calculate_total_average_with_carry_and_rounding(
@@ -69,14 +74,10 @@ fn apply_rounding(report: &mut Report, policy: &RoundingPolicy) {
         return;
     }
 
-    let jpy_rule = policy
-        .currency
-        .get("JPY")
-        .copied()
-        .unwrap_or(RoundRule {
-            scale: 0,
-            mode: RoundingMode::HalfUp,
-        });
+    let jpy_rule = policy.currency.get("JPY").copied().unwrap_or(RoundRule {
+        scale: 0,
+        mode: RoundingMode::HalfUp,
+    });
 
     report.realized_pnl_jpy = round_by_rule(report.realized_pnl_jpy, jpy_rule);
     report.income_jpy = round_by_rule(report.income_jpy, jpy_rule);

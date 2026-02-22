@@ -373,16 +373,18 @@ fn case8_year_mismatch_is_excluded_consistently_across_methods() {
     assert_eq!(moving.positions["BTC"].qty, dec!(0));
     assert_eq!(total.positions["BTC"].qty, dec!(0));
 
-    assert!(
-        moving
-            .diagnostics
-            .iter()
-            .any(|w| matches!(w, Warning::YearMismatch { event_year: 2025, tax_year: 2026 }))
-    );
-    assert!(
-        total
-            .diagnostics
-            .iter()
-            .any(|w| matches!(w, Warning::YearMismatch { event_year: 2025, tax_year: 2026 }))
-    );
+    assert!(moving.diagnostics.iter().any(|w| matches!(
+        w,
+        Warning::YearMismatch {
+            event_year: 2025,
+            tax_year: 2026
+        }
+    )));
+    assert!(total.diagnostics.iter().any(|w| matches!(
+        w,
+        Warning::YearMismatch {
+            event_year: 2025,
+            tax_year: 2026
+        }
+    )));
 }
