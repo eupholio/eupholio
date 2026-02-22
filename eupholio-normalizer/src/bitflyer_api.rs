@@ -112,8 +112,7 @@ impl BitflyerApiClient {
     }
 
     pub fn fetch_executions_page(&self, opts: &FetchOptions) -> Result<Vec<Execution>, String> {
-        validate_product_code(&opts.product_code)?;
-        let path_with_query = build_executions_path(opts);
+        let path_with_query = build_executions_path(opts)?;
         let url = format!("{}{}", self.base_url, path_with_query);
 
         let mut backoff = Duration::from_millis(300);
@@ -306,9 +305,8 @@ pub fn filter_executions_by_time(
         .collect()
 }
 
-pub fn build_executions_path(opts: &FetchOptions) -> String {
-    let product_code =
-        validate_product_code(&opts.product_code).unwrap_or_else(|_| opts.product_code.clone());
+pub fn build_executions_path(opts: &FetchOptions) -> Result<String, String> {
+    let product_code = validate_product_code(&opts.product_code)?;
 
     let mut q = vec![
         format!("product_code={}", product_code),
@@ -322,7 +320,7 @@ pub fn build_executions_path(opts: &FetchOptions) -> String {
         q.push(format!("after={}", v));
     }
 
-    format!("{}?{}", EXECUTIONS_PATH, q.join("&"))
+    Ok(format!("{}?{}", EXECUTIONS_PATH, q.join("&")))
 }
 
 fn build_auth_headers(api_key: &str, timestamp: &str, sign: &str) -> Result<HeaderMap, String> {

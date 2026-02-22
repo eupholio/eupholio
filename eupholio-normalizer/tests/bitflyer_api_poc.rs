@@ -84,7 +84,8 @@ fn bitflyer_api_build_executions_path_with_paging() {
         count: 100,
         before: Some(123),
         after: Some(45),
-    });
+    })
+    .expect("path should build");
 
     assert_eq!(
         path,
