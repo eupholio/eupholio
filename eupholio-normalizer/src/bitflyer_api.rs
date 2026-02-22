@@ -149,11 +149,13 @@ impl BitflyerApiClient {
 
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
+                let _ = resp.text();
                 thread::sleep(backoff);
                 backoff *= 2;
                 continue;
             }
 
+            let _ = resp.text();
             return Err(format!("bitFlyer API error: status={}", status.as_u16()));
         }
 
@@ -173,6 +175,7 @@ impl BitflyerApiClient {
 
         let mut all = Vec::new();
         let mut before: Option<i64> = None;
+        let mut seen_ids = std::collections::HashSet::new();
 
         for _ in 0..opts.max_pages {
             let page = self.fetch_executions_page(&FetchOptions {
@@ -187,11 +190,18 @@ impl BitflyerApiClient {
             }
 
             let filtered = filter_executions_by_time(&page, opts.since, opts.until);
-            all.extend(filtered);
+            for ex in filtered {
+                if seen_ids.insert(ex.id) {
+                    all.push(ex);
+                }
+            }
 
-            // bitFlyer `before` is an upper bound on execution id (exclusive-ish in practice);
-            // stepping to oldest id keeps pagination moving toward older records.
+            // bitFlyer `before` is treated as an upper bound on execution id.
+            // Guard against non-decreasing cursors to avoid looping duplicate pages.
             let oldest_id = page.iter().map(|e| e.id).min();
+            if oldest_id.is_none() || oldest_id == before {
+                break;
+            }
             before = oldest_id;
 
             // NOTE: we intentionally do not early-terminate by comparing timestamp ordering
@@ -277,7 +287,7 @@ pub fn normalize_executions(
                 row,
                 reason: format!(
                     "unsupported side: side='{}', execution_id='{}'",
-                    side_raw, ex.id
+                    ex.side, ex.id
                 ),
             });
         }

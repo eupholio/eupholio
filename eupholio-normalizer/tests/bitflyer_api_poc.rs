@@ -34,7 +34,9 @@ fn bitflyer_api_normalize_executions_to_events() {
 
     assert_eq!(normalized.events.len(), 2);
     assert_eq!(normalized.diagnostics.len(), 1);
-    assert!(normalized.diagnostics[0].reason.contains("side='oThEr'"));
+    assert!(normalized.diagnostics[0]
+        .reason
+        .contains("side='  oThEr  '"));
 
     match &normalized.events[0] {
         Event::Acquire {
@@ -124,6 +126,45 @@ fn bitflyer_api_filter_executions_by_time_window() {
     let filtered = filter_executions_by_time(&executions, Some(since), Some(until));
     assert_eq!(filtered.len(), 1);
     assert_eq!(filtered[0].id, 2);
+}
+
+#[test]
+fn bitflyer_api_build_executions_path_normalizes_lowercase_product_code() {
+    let path = build_executions_path(&FetchOptions {
+        product_code: "btc_jpy".to_string(),
+        count: 10,
+        before: None,
+        after: None,
+    })
+    .expect("lowercase product_code should be normalized");
+
+    assert!(path.contains("product_code=BTC_JPY"));
+}
+
+#[test]
+fn bitflyer_api_build_executions_path_rejects_invalid_product_code() {
+    let err = build_executions_path(&FetchOptions {
+        product_code: "BTC-JPY".to_string(),
+        count: 10,
+        before: None,
+        after: None,
+    })
+    .expect_err("invalid chars should fail");
+
+    assert!(err.contains("only [A-Z0-9_] is allowed"));
+}
+
+#[test]
+fn bitflyer_api_build_executions_path_rejects_empty_product_code() {
+    let err = build_executions_path(&FetchOptions {
+        product_code: "   ".to_string(),
+        count: 10,
+        before: None,
+        after: None,
+    })
+    .expect_err("empty product_code should fail");
+
+    assert!(err.contains("must not be empty"));
 }
 
 #[test]
