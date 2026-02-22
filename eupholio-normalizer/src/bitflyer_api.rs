@@ -257,9 +257,10 @@ pub fn normalize_executions(
         let fee_base = ex.commission.unwrap_or(Decimal::ZERO).abs();
         let fee_jpy = fee_base * ex.price;
         let jpy_total = ex.price * ex.size;
-        let side_raw = ex.side.trim();
+        let side_raw = &ex.side;
+        let side_cmp = ex.side.trim();
 
-        if side_raw.eq_ignore_ascii_case("BUY") {
+        if side_cmp.eq_ignore_ascii_case("BUY") {
             let net_qty = ex.size - fee_base;
             if net_qty <= Decimal::ZERO {
                 return Err(format!(
@@ -274,7 +275,7 @@ pub fn normalize_executions(
                 jpy_cost: jpy_total + fee_jpy,
                 ts: ex.exec_date,
             });
-        } else if side_raw.eq_ignore_ascii_case("SELL") {
+        } else if side_cmp.eq_ignore_ascii_case("SELL") {
             events.push(Event::Dispose {
                 id: format!("bfexec-{}:dispose", ex.id),
                 asset: base_asset.clone(),
@@ -287,7 +288,8 @@ pub fn normalize_executions(
                 row,
                 reason: format!(
                     "unsupported side: side='{}', execution_id='{}'",
-                    ex.side, ex.id
+                    sanitize_diagnostic_value(side_raw),
+                    sanitize_diagnostic_value(&ex.id.to_string())
                 ),
             });
         }
@@ -387,6 +389,24 @@ fn validate_product_code(product_code: &str) -> Result<String, String> {
         ));
     }
     Ok(code)
+}
+
+fn sanitize_diagnostic_value(s: &str) -> String {
+    const MAX_LEN: usize = 200;
+
+    let mut out = String::with_capacity(s.len().min(MAX_LEN));
+    for c in s.chars() {
+        if out.len() >= MAX_LEN {
+            out.push_str("…");
+            break;
+        }
+        if c.is_control() {
+            out.push('�');
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 fn validate_fetch_window_options(opts: &FetchWindowOptions) -> Result<(), String> {
