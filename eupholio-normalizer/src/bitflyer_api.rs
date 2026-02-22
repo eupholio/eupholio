@@ -43,6 +43,27 @@ pub struct FetchOptions {
     pub after: Option<i64>,
 }
 
+#[derive(Debug, Clone)]
+pub struct FetchWindowOptions {
+    pub product_code: String,
+    pub count_per_page: usize,
+    pub max_pages: usize,
+    pub since: Option<DateTime<Utc>>,
+    pub until: Option<DateTime<Utc>>,
+}
+
+impl Default for FetchWindowOptions {
+    fn default() -> Self {
+        Self {
+            product_code: "BTC_JPY".to_string(),
+            count_per_page: 100,
+            max_pages: 20,
+            since: None,
+            until: None,
+        }
+    }
+}
+
 impl Default for FetchOptions {
     fn default() -> Self {
         Self {
@@ -149,6 +170,55 @@ impl BitflyerApiClient {
         let executions = self.fetch_executions_page(opts)?;
         normalize_executions(&executions, &opts.product_code)
     }
+
+    pub fn fetch_executions_window(
+        &self,
+        opts: &FetchWindowOptions,
+    ) -> Result<Vec<Execution>, String> {
+        let mut all = Vec::new();
+        let mut before: Option<i64> = None;
+
+        for _ in 0..opts.max_pages {
+            let page = self.fetch_executions_page(&FetchOptions {
+                product_code: opts.product_code.clone(),
+                count: opts.count_per_page,
+                before,
+                after: None,
+            })?;
+
+            if page.is_empty() {
+                break;
+            }
+
+            let filtered = filter_executions_by_time(&page, opts.since, opts.until);
+            all.extend(filtered);
+
+            // bitFlyer `before` is an upper bound on execution id (exclusive-ish in practice);
+            // stepping to oldest id keeps pagination moving toward older records.
+            let oldest_id = page.iter().map(|e| e.id).min();
+            before = oldest_id;
+
+            if let (Some(since), Some(oldest_ts)) =
+                (opts.since, page.iter().map(|e| e.exec_date).min())
+            {
+                if oldest_ts < since {
+                    break;
+                }
+            }
+
+            thread::sleep(Duration::from_millis(150));
+        }
+
+        Ok(all)
+    }
+
+    pub fn fetch_normalize_window(
+        &self,
+        opts: &FetchWindowOptions,
+    ) -> Result<NormalizeResult, String> {
+        let executions = self.fetch_executions_window(opts)?;
+        normalize_executions(&executions, &opts.product_code)
+    }
 }
 
 pub fn sign_request(secret: &str, timestamp: &str, method: &str, path: &str, body: &str) -> String {
@@ -228,6 +298,22 @@ pub fn normalize_executions(
         events,
         diagnostics,
     })
+}
+
+pub fn filter_executions_by_time(
+    executions: &[Execution],
+    since: Option<DateTime<Utc>>,
+    until: Option<DateTime<Utc>>,
+) -> Vec<Execution> {
+    executions
+        .iter()
+        .filter(|e| {
+            let ge_since = since.map(|s| e.exec_date >= s).unwrap_or(true);
+            let le_until = until.map(|u| e.exec_date <= u).unwrap_or(true);
+            ge_since && le_until
+        })
+        .cloned()
+        .collect()
 }
 
 pub fn build_executions_path(opts: &FetchOptions) -> String {
