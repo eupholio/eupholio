@@ -1,6 +1,8 @@
+use chrono::{DateTime, Utc};
 use eupholio_core::event::Event;
 use eupholio_normalizer::bitflyer_api::{
-    build_executions_path, normalize_executions, sign_request, Execution, FetchOptions,
+    build_executions_path, filter_executions_by_time, normalize_executions, sign_request,
+    Execution, FetchOptions,
 };
 
 #[test]
@@ -90,4 +92,25 @@ fn bitflyer_api_build_executions_path_with_paging() {
         path,
         "/v1/me/getexecutions?product_code=BTC_JPY&count=100&before=123&after=45"
     );
+}
+
+#[test]
+fn bitflyer_api_filter_executions_by_time_window() {
+    let raw = r#"[
+      {"id": 1, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-01T00:00:00Z"},
+      {"id": 2, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-02-01T00:00:00Z"},
+      {"id": 3, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-03-01T00:00:00Z"}
+    ]"#;
+    let executions: Vec<Execution> = serde_json::from_str(raw).unwrap();
+
+    let since = DateTime::parse_from_rfc3339("2026-01-15T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let until = DateTime::parse_from_rfc3339("2026-02-15T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    let filtered = filter_executions_by_time(&executions, Some(since), Some(until));
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, 2);
 }
