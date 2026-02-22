@@ -29,10 +29,10 @@ import (
 )
 
 var Currencies = map[int]string{
-	1:     "btc",
-	279:   "eth",
-	44:    "xrp",
-	325:   "usdt",
+	1:   "btc",
+	279: "eth",
+	44:  "xrp",
+	325: "usdt",
 }
 
 var BaseCurrencies = []string{

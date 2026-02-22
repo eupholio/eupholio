@@ -22,7 +22,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	
+
 	"github.com/eupholio/eupholio/pkg/currency"
 	"github.com/eupholio/eupholio/pkg/etlcmd"
 )

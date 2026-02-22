@@ -53,7 +53,7 @@ func (r *repository) FindLatestMarketPriceByCurrency(ctx context.Context, curren
 
 func (r *repository) FindMarketPriceByCurrencyAndTime(ctx context.Context, currency string, tm time.Time) (*models.MarketPrice, error) {
 	from := tm.Format(timeFormat)
-	to := tm.Add(time.Hour*48).Format(timeFormat)
+	to := tm.Add(time.Hour * 48).Format(timeFormat)
 	price, err := models.MarketPrices(
 		qm.Where("base_currency = ? AND currency = ? AND time >= ? AND time < ?", r.baseCurrency, currency, from, to),
 		qm.OrderBy("time ASC"),

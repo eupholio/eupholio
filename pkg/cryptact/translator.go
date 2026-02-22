@@ -115,7 +115,6 @@ func (t *Translator) getValue(ctx context.Context, repository eupholio.Repositor
 }
 
 // https://support.cryptact.com/hc/en-us/articles/360002571312-Custom-File-for-any-other-trades
-//
 func (t *Translator) TranslateTransaction(ctx context.Context, repository eupholio.Repository, transaction *models.Transaction, tr *models.CryptactCustom) (models.EventSlice, string, error) {
 	newEvent := eupholio.NewEventFunc(tr.Timestamp, transaction.ID)
 

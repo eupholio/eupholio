@@ -36,5 +36,5 @@ func New(db boil.ContextExecutor, baseCurrency currency.Symbol) eupholio.Reposit
 
 type repository struct {
 	boil.ContextExecutor
-	baseCurrency    currency.Symbol
+	baseCurrency currency.Symbol
 }

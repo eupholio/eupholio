@@ -29,9 +29,9 @@ type CarryIn struct {
 }
 
 type Input struct {
-	TaxYear  int                `json:"tax_year"`
-	Events   []Event            `json:"events"`
-	CarryIn  map[string]CarryIn `json:"carry_in"`
+	TaxYear int                `json:"tax_year"`
+	Events  []Event            `json:"events"`
+	CarryIn map[string]CarryIn `json:"carry_in"`
 }
 
 type Out struct {

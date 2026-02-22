@@ -170,9 +170,10 @@ func (t *Translator) Translate(ctx context.Context, repo eupholio.Repository, st
 // | Fee Total            | fee in QUOTE                 |
 
 // NOTE:
-//   The column name of trading file seems confusing. I'm not sure this is the correct understanding.
-//    - QuoteTotalLessFee field means differential of base currency (trading currency)
-//    - BaseTotalLessFee field means differential of quote currency (payment currency)
+//
+//	The column name of trading file seems confusing. I'm not sure this is the correct understanding.
+//	 - QuoteTotalLessFee field means differential of base currency (trading currency)
+//	 - BaseTotalLessFee field means differential of quote currency (payment currency)
 func (t *Translator) translateTransaction(ctx context.Context, repository eupholio.Repository, transaction *models.Transaction, tr *models.PoloniexTrade) (models.EventSlice, string, error) {
 	newEvent := eupholio.NewEventFunc(tr.Date, transaction.ID)
 

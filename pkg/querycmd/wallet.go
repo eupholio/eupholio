@@ -26,7 +26,7 @@ import (
 	"io"
 
 	"github.com/ericlagergren/decimal"
-	
+
 	"github.com/eupholio/eupholio/pkg/currency"
 	"github.com/eupholio/eupholio/pkg/eupholio"
 	"github.com/eupholio/eupholio/pkg/repository"

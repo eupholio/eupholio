@@ -25,8 +25,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/olekukonko/tablewriter"
 	"github.com/ericlagergren/decimal"
+	"github.com/olekukonko/tablewriter"
 
 	"github.com/eupholio/eupholio/models"
 )
