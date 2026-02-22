@@ -22,16 +22,16 @@ package coincheck
 
 const (
 	WalletCode = "COINCHECK"
-	FiatCode = "JPY"
+	FiatCode   = "JPY"
 )
 
 const (
-	OperationReceived = "Received"
-	OperationLimitOrder = "Limit Order"
+	OperationReceived                  = "Received"
+	OperationLimitOrder                = "Limit Order"
 	OperationCompletedTradingContracts = "Completed trading contracts"
-	OperationSent = "Sent"
-	OperationBankWithdrawal = "Bank Withdrawal"
-	OperationCancelLimitOrder = "Cancel Limit Order"
+	OperationSent                      = "Sent"
+	OperationBankWithdrawal            = "Bank Withdrawal"
+	OperationCancelLimitOrder          = "Cancel Limit Order"
 )
 
 type ColumnID int

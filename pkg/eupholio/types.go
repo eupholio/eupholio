@@ -22,12 +22,12 @@ package eupholio
 
 // Event type column values
 const (
-	EventTypeBuy         = "BUY"
-	EventTypeSell        = "SELL"
-	EventTypeCommission  = "COMMISSION"
-	EventTypeFee         = "FEE"
-	EventTypeWithdraw    = "WITHDRAW"
-	EventTypeDeposit     = "DEPOSIT"
+	EventTypeBuy        = "BUY"
+	EventTypeSell       = "SELL"
+	EventTypeCommission = "COMMISSION"
+	EventTypeFee        = "FEE"
+	EventTypeWithdraw   = "WITHDRAW"
+	EventTypeDeposit    = "DEPOSIT"
 )
 
 // Entry type

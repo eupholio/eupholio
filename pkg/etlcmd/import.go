@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	
+
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/eupholio/eupholio/pkg/bitflyer"

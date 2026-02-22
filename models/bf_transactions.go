@@ -86,8 +86,10 @@ func (w whereHelpertypes_NullDecimal) EQ(x types.NullDecimal) qm.QueryMod {
 func (w whereHelpertypes_NullDecimal) NEQ(x types.NullDecimal) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-func (w whereHelpertypes_NullDecimal) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpertypes_NullDecimal) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpertypes_NullDecimal) IsNull() qm.QueryMod { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpertypes_NullDecimal) IsNotNull() qm.QueryMod {
+	return qmhelper.WhereIsNotNull(w.field)
+}
 func (w whereHelpertypes_NullDecimal) LT(x types.NullDecimal) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }

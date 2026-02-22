@@ -25,7 +25,7 @@ const (
 	DateColumn     = "date"
 	CurrencyColumn = "currency"
 	AmountColumn   = "amount"
-	WalletColumn  = "wallet"
+	WalletColumn   = "wallet"
 )
 
 var columnNames = []string{
