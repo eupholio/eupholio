@@ -68,7 +68,9 @@ pub fn normalize_trade_history_csv(raw: &str) -> Result<NormalizeResult, String>
 
         match map_row(&header_index, &record) {
             Ok(RowOutcome::Event(event)) => events.push(event),
-            Ok(RowOutcome::Unsupported(reason)) => diagnostics.push(NormalizeDiagnostic { row, reason }),
+            Ok(RowOutcome::Unsupported(reason)) => {
+                diagnostics.push(NormalizeDiagnostic { row, reason })
+            }
             Err(e) => return Err(format!("row {}: {}", row, e)),
         }
     }
@@ -200,7 +202,11 @@ fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {
         .collect()
 }
 
-fn get<'a>(index: &HashMap<String, usize>, row: &'a StringRecord, key: &str) -> Result<&'a str, String> {
+fn get<'a>(
+    index: &HashMap<String, usize>,
+    row: &'a StringRecord,
+    key: &str,
+) -> Result<&'a str, String> {
     let i = *index
         .get(key)
         .ok_or_else(|| format!("missing required header {}", key))?;
@@ -235,9 +241,12 @@ fn parse_rate_pair(comment: &str) -> Result<(Decimal, String, String), String> {
             .expect("regex should compile")
     });
 
-    let caps = re
-        .captures(comment)
-        .ok_or_else(|| format!("failed to parse comment: {}", sanitize_diagnostic_value(comment)))?;
+    let caps = re.captures(comment).ok_or_else(|| {
+        format!(
+            "failed to parse comment: {}",
+            sanitize_diagnostic_value(comment)
+        )
+    })?;
     let rate = parse_decimal(&caps[1])?;
     let quote = caps[2].to_ascii_uppercase();
     let base = caps[3].to_ascii_uppercase();

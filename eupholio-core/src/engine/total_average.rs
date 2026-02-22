@@ -41,7 +41,11 @@ pub fn run_per_year(events: &[Event], tax_year: i32, policy: &RoundingPolicy) ->
     run_with_carry_inner(events, tax_year, &HashMap::new(), None, Some(policy))
 }
 
-pub fn run_with_carry(events: &[Event], tax_year: i32, carry_in: &HashMap<String, CarryIn>) -> Report {
+pub fn run_with_carry(
+    events: &[Event],
+    tax_year: i32,
+    carry_in: &HashMap<String, CarryIn>,
+) -> Report {
     run_with_carry_inner(events, tax_year, carry_in, None, None)
 }
 
@@ -81,14 +85,10 @@ fn run_with_carry_inner(
         b.carry_in_cost = c.cost;
 
         if let Some(policy) = per_event_rounding {
-            let jpy_rule = policy
-                .currency
-                .get("JPY")
-                .copied()
-                .unwrap_or(RoundRule {
-                    scale: 0,
-                    mode: RoundingMode::HalfUp,
-                });
+            let jpy_rule = policy.currency.get("JPY").copied().unwrap_or(RoundRule {
+                scale: 0,
+                mode: RoundingMode::HalfUp,
+            });
             b.carry_in_qty = round_by_rule(b.carry_in_qty, policy.quantity);
             b.carry_in_cost = round_by_rule(b.carry_in_cost, jpy_rule);
         }
@@ -157,7 +157,13 @@ fn run_with_carry_inner(
         }
 
         if let Some(policy) = per_event_rounding {
-            apply_per_event_rounding(&mut buckets, &mut income, policy, touched_asset, round_income);
+            apply_per_event_rounding(
+                &mut buckets,
+                &mut income,
+                policy,
+                touched_asset,
+                round_income,
+            );
         }
     }
 
@@ -215,14 +221,10 @@ fn run_with_carry_inner(
     }
 
     if let Some(policy) = per_year_rounding {
-        let jpy_rule = policy
-            .currency
-            .get("JPY")
-            .copied()
-            .unwrap_or(RoundRule {
-                scale: 0,
-                mode: RoundingMode::HalfUp,
-            });
+        let jpy_rule = policy.currency.get("JPY").copied().unwrap_or(RoundRule {
+            scale: 0,
+            mode: RoundingMode::HalfUp,
+        });
         income = round_by_rule(income, jpy_rule);
     }
 
@@ -242,14 +244,10 @@ fn apply_per_event_rounding(
     touched_asset: Option<&str>,
     round_income: bool,
 ) {
-    let jpy_rule = policy
-        .currency
-        .get("JPY")
-        .copied()
-        .unwrap_or(RoundRule {
-            scale: 0,
-            mode: RoundingMode::HalfUp,
-        });
+    let jpy_rule = policy.currency.get("JPY").copied().unwrap_or(RoundRule {
+        scale: 0,
+        mode: RoundingMode::HalfUp,
+    });
 
     if round_income {
         *income = round_by_rule(*income, jpy_rule);
@@ -265,15 +263,14 @@ fn apply_per_event_rounding(
     }
 }
 
-fn apply_per_year_rounding_to_asset_summary(summary: &mut YearlyAssetSummary, policy: &RoundingPolicy) {
-    let jpy_rule = policy
-        .currency
-        .get("JPY")
-        .copied()
-        .unwrap_or(RoundRule {
-            scale: 0,
-            mode: RoundingMode::HalfUp,
-        });
+fn apply_per_year_rounding_to_asset_summary(
+    summary: &mut YearlyAssetSummary,
+    policy: &RoundingPolicy,
+) {
+    let jpy_rule = policy.currency.get("JPY").copied().unwrap_or(RoundRule {
+        scale: 0,
+        mode: RoundingMode::HalfUp,
+    });
 
     summary.carry_in_qty = round_by_rule(summary.carry_in_qty, policy.quantity);
     summary.carry_in_cost = round_by_rule(summary.carry_in_cost, jpy_rule);

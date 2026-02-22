@@ -5,7 +5,8 @@ use eupholio_normalizer::bitflyer::normalize_transaction_history_csv;
 #[test]
 fn bitflyer_smoke_source_to_normalized_to_calculate() {
     let raw = include_str!("fixtures/normalizer/bitflyer_transaction_history_smoke.csv");
-    let expected_raw = include_str!("fixtures/normalizer/bitflyer_transaction_history_smoke.normalized.json");
+    let expected_raw =
+        include_str!("fixtures/normalizer/bitflyer_transaction_history_smoke.normalized.json");
 
     let normalized = normalize_transaction_history_csv(raw).expect("normalization should succeed");
     assert_eq!(normalized.diagnostics.len(), 1);
@@ -15,7 +16,8 @@ fn bitflyer_smoke_source_to_normalized_to_calculate() {
         "unsupported trade type: trade_type='入金', order_id='bf-order-003'"
     );
 
-    let expected: Vec<Event> = serde_json::from_str(expected_raw).expect("fixture json should be valid");
+    let expected: Vec<Event> =
+        serde_json::from_str(expected_raw).expect("fixture json should be valid");
     assert_eq!(normalized.events, expected);
 
     let report = eupholio_core::calculate(
