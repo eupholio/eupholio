@@ -91,7 +91,10 @@ pub fn normalize_order_history_csv(raw: &str) -> Result<NormalizeResult, String>
     })
 }
 
-fn map_row_to_event(index: &HashMap<String, usize>, row: &StringRecord) -> Result<Option<Event>, String> {
+fn map_row_to_event(
+    index: &HashMap<String, usize>,
+    row: &StringRecord,
+) -> Result<Option<Event>, String> {
     let id = get(index, row, "Uuid")?;
     let exchange = get(index, row, "Exchange")?;
     let order_type = get(index, row, "OrderType")?;
@@ -137,7 +140,11 @@ fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {
         .collect()
 }
 
-fn get<'a>(index: &HashMap<String, usize>, row: &'a StringRecord, key: &str) -> Result<&'a str, String> {
+fn get<'a>(
+    index: &HashMap<String, usize>,
+    row: &'a StringRecord,
+    key: &str,
+) -> Result<&'a str, String> {
     let i = *index
         .get(key)
         .ok_or_else(|| format!("missing required header {}", key))?;
@@ -159,8 +166,12 @@ fn parse_datetime(s: &str) -> Result<DateTime<Utc>, String> {
 
 fn split_exchange(s: &str) -> Result<(&str, &str), String> {
     let mut parts = s.split('-');
-    let payment = parts.next().ok_or_else(|| "missing payment asset".to_string())?;
-    let trading = parts.next().ok_or_else(|| "missing trading asset".to_string())?;
+    let payment = parts
+        .next()
+        .ok_or_else(|| "missing payment asset".to_string())?;
+    let trading = parts
+        .next()
+        .ok_or_else(|| "missing trading asset".to_string())?;
     if parts.next().is_some() {
         return Err(format!("invalid exchange pair '{}'", s));
     }

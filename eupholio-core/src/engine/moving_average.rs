@@ -14,7 +14,11 @@ pub fn run_per_event(events: &[Event], tax_year: i32, policy: &RoundingPolicy) -
     run_inner(events, tax_year, Some(policy))
 }
 
-fn run_inner(events: &[Event], tax_year: i32, per_event_rounding: Option<&RoundingPolicy>) -> Report {
+fn run_inner(
+    events: &[Event],
+    tax_year: i32,
+    per_event_rounding: Option<&RoundingPolicy>,
+) -> Report {
     let mut positions: HashMap<String, Position> = HashMap::new();
     let mut realized = Decimal::ZERO;
     let mut income = Decimal::ZERO;
@@ -157,14 +161,10 @@ fn apply_per_event_rounding(
     round_realized: bool,
     round_income: bool,
 ) {
-    let jpy_rule = policy
-        .currency
-        .get("JPY")
-        .copied()
-        .unwrap_or(RoundRule {
-            scale: 0,
-            mode: RoundingMode::HalfUp,
-        });
+    let jpy_rule = policy.currency.get("JPY").copied().unwrap_or(RoundRule {
+        scale: 0,
+        mode: RoundingMode::HalfUp,
+    });
 
     if round_realized {
         *realized = round_by_rule(*realized, jpy_rule);

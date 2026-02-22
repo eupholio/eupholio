@@ -104,9 +104,7 @@ fn cli_validate_per_year_total_average_no_timing_warning() {
         .assert()
         .success()
         .stdout(predicate::str::contains("ROUNDING_TIMING_NOT_FULLY_IMPLEMENTED").not())
-        .stdout(
-            predicate::str::contains("ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE").not(),
-        );
+        .stdout(predicate::str::contains("ROUNDING_PER_YEAR_UNSUPPORTED_FOR_MOVING_AVERAGE").not());
 }
 
 #[test]

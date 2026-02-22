@@ -59,16 +59,15 @@ fn per_year_rounding_keeps_carry_out_cost_coherent_with_qty_and_avg() {
         &events,
     );
 
-    let summary = &report
-        .yearly_summary
-        .as_ref()
-        .unwrap()
-        .by_asset["BTC"];
+    let summary = &report.yearly_summary.as_ref().unwrap().by_asset["BTC"];
 
     assert_eq!(summary.average_cost_per_unit, dec!(101));
     assert_eq!(summary.carry_out_qty, dec!(1));
     assert_eq!(summary.carry_out_cost, dec!(101));
-    assert_eq!(summary.carry_out_cost, summary.carry_out_qty * summary.average_cost_per_unit);
+    assert_eq!(
+        summary.carry_out_cost,
+        summary.carry_out_qty * summary.average_cost_per_unit
+    );
 }
 
 #[test]
@@ -110,11 +109,7 @@ fn per_year_rounding_applies_jpy_rounding_after_rounded_qty_avg_product() {
         &events,
     );
 
-    let summary = &report
-        .yearly_summary
-        .as_ref()
-        .unwrap()
-        .by_asset["BTC"];
+    let summary = &report.yearly_summary.as_ref().unwrap().by_asset["BTC"];
 
     assert_eq!(summary.carry_out_qty, dec!(1));
     assert_eq!(summary.average_cost_per_unit, dec!(100.5));
