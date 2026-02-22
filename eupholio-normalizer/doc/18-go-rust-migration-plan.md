@@ -18,7 +18,7 @@ This plan defines a safe, staged replacement of legacy Go paths with Rust-based 
 
 ### Stage 1: Parallel adapter expansion
 
-- Add next live-source adapter (target: coincheck)
+- Add next live-source adapter (coincheck done, poloniex skeleton added)
 - For each adapter:
   - mapping doc
   - fixture pair (raw + normalized)
