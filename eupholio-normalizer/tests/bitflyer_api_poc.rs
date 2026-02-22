@@ -1,5 +1,7 @@
 use eupholio_core::event::Event;
-use eupholio_normalizer::bitflyer_api::{normalize_executions, sign_request, Execution};
+use eupholio_normalizer::bitflyer_api::{
+    build_executions_path, normalize_executions, sign_request, Execution, FetchOptions,
+};
 
 #[test]
 fn bitflyer_api_sign_request_is_deterministic() {
@@ -73,4 +75,19 @@ fn bitflyer_api_non_jpy_quote_is_rejected() {
     assert!(normalize_executions(&executions, "BTC_USD")
         .expect_err("non-jpy should fail")
         .contains("only JPY is supported"));
+}
+
+#[test]
+fn bitflyer_api_build_executions_path_with_paging() {
+    let path = build_executions_path(&FetchOptions {
+        product_code: "BTC_JPY".to_string(),
+        count: 100,
+        before: Some(123),
+        after: Some(45),
+    });
+
+    assert_eq!(
+        path,
+        "/v1/me/getexecutions?product_code=BTC_JPY&count=100&before=123&after=45"
+    );
 }
