@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use eupholio_core::event::Event;
 use eupholio_normalizer::bitflyer_api::{
     build_executions_path, filter_executions_by_time, normalize_executions, sign_request,
-    Execution, FetchOptions,
+    ApiCredentials, BitflyerApiClient, Execution, FetchOptions, FetchWindowOptions,
 };
 
 #[test]
@@ -25,7 +25,7 @@ fn bitflyer_api_normalize_executions_to_events() {
     let raw = r#"[
       {"id": 1001, "side": "BUY", "price": "1000000", "size": "0.01", "exec_date": "2026-01-01T00:00:00Z", "commission": "0.0001"},
       {"id": 1002, "side": "SELL", "price": "1200000", "size": "0.005", "exec_date": "2026-01-02T00:00:00Z", "commission": "0.0001"},
-      {"id": 1003, "side": "OTHER", "price": "1", "size": "1", "exec_date": "2026-01-03T00:00:00Z"}
+      {"id": 1003, "side": "  oThEr  ", "price": "1", "size": "1", "exec_date": "2026-01-03T00:00:00Z"}
     ]"#;
 
     let executions: Vec<Execution> = serde_json::from_str(raw).expect("json should parse");
@@ -34,9 +34,7 @@ fn bitflyer_api_normalize_executions_to_events() {
 
     assert_eq!(normalized.events.len(), 2);
     assert_eq!(normalized.diagnostics.len(), 1);
-    assert!(normalized.diagnostics[0]
-        .reason
-        .contains("unsupported side"));
+    assert!(normalized.diagnostics[0].reason.contains("side='oThEr'"));
 
     match &normalized.events[0] {
         Event::Acquire {
@@ -113,4 +111,36 @@ fn bitflyer_api_filter_executions_by_time_window() {
     let filtered = filter_executions_by_time(&executions, Some(since), Some(until));
     assert_eq!(filtered.len(), 1);
     assert_eq!(filtered[0].id, 2);
+}
+
+#[test]
+fn bitflyer_api_window_rejects_invalid_since_until() {
+    let client = BitflyerApiClient::new(
+        "https://api.bitflyer.com/".to_string(),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let since = DateTime::parse_from_rfc3339("2026-02-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let until = DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    let err = client
+        .fetch_executions_window(&FetchWindowOptions {
+            product_code: "BTC_JPY".to_string(),
+            count_per_page: 100,
+            max_pages: 1,
+            since: Some(since),
+            until: Some(until),
+        })
+        .expect_err("since > until should fail before network");
+
+    assert!(err.contains("since"));
+    assert!(err.contains("until"));
 }

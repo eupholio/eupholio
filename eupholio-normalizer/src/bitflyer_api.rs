@@ -105,13 +105,14 @@ impl BitflyerApiClient {
             .map_err(|e| format!("failed to build http client: {e}"))?;
 
         Ok(Self {
-            base_url,
+            base_url: base_url.trim_end_matches('/').to_string(),
             credentials,
             http,
         })
     }
 
     pub fn fetch_executions_page(&self, opts: &FetchOptions) -> Result<Vec<Execution>, String> {
+        validate_product_code(&opts.product_code)?;
         let path_with_query = build_executions_path(opts);
         let url = format!("{}{}", self.base_url, path_with_query);
 
@@ -154,16 +155,10 @@ impl BitflyerApiClient {
                 continue;
             }
 
-            let body = resp.text().unwrap_or_default();
-            return Err(format!(
-                "bitFlyer API error: status={}, body={}{}",
-                status.as_u16(),
-                body.chars().take(200).collect::<String>(),
-                if body.len() > 200 { "…" } else { "" }
-            ));
+            return Err(format!("bitFlyer API error: status={}", status.as_u16()));
         }
 
-        Err("unreachable retry loop".to_string())
+        unreachable!("unreachable retry loop in fetch_executions_page")
     }
 
     pub fn fetch_and_normalize_page(&self, opts: &FetchOptions) -> Result<NormalizeResult, String> {
@@ -175,6 +170,8 @@ impl BitflyerApiClient {
         &self,
         opts: &FetchWindowOptions,
     ) -> Result<Vec<Execution>, String> {
+        validate_fetch_window_options(opts)?;
+
         let mut all = Vec::new();
         let mut before: Option<i64> = None;
 
@@ -198,21 +195,16 @@ impl BitflyerApiClient {
             let oldest_id = page.iter().map(|e| e.id).min();
             before = oldest_id;
 
-            if let (Some(since), Some(oldest_ts)) =
-                (opts.since, page.iter().map(|e| e.exec_date).min())
-            {
-                if oldest_ts < since {
-                    break;
-                }
-            }
-
+            // NOTE: we intentionally do not early-terminate by comparing timestamp ordering
+            // across pages. If execution-id ordering and timestamps are not strictly correlated,
+            // early termination could skip valid records inside the requested time window.
             thread::sleep(Duration::from_millis(150));
         }
 
         Ok(all)
     }
 
-    pub fn fetch_normalize_window(
+    pub fn fetch_and_normalize_window(
         &self,
         opts: &FetchWindowOptions,
     ) -> Result<NormalizeResult, String> {
@@ -256,41 +248,39 @@ pub fn normalize_executions(
         let fee_base = ex.commission.unwrap_or(Decimal::ZERO).abs();
         let fee_jpy = fee_base * ex.price;
         let jpy_total = ex.price * ex.size;
-        let side = ex.side.to_ascii_uppercase();
+        let side_raw = ex.side.trim();
 
-        match side.as_str() {
-            "BUY" => {
-                let net_qty = ex.size - fee_base;
-                if net_qty <= Decimal::ZERO {
-                    return Err(format!(
-                        "row {}: buy qty must be > 0 after fee, got {}",
-                        row, net_qty
-                    ));
-                }
-                events.push(Event::Acquire {
-                    id: format!("bfexec-{}:acquire", ex.id),
-                    asset: base_asset.to_string(),
-                    qty: net_qty,
-                    jpy_cost: jpy_total + fee_jpy,
-                    ts: ex.exec_date,
-                });
+        if side_raw.eq_ignore_ascii_case("BUY") {
+            let net_qty = ex.size - fee_base;
+            if net_qty <= Decimal::ZERO {
+                return Err(format!(
+                    "row {}: buy qty must be > 0 after fee, got {}",
+                    row, net_qty
+                ));
             }
-            "SELL" => {
-                events.push(Event::Dispose {
-                    id: format!("bfexec-{}:dispose", ex.id),
-                    asset: base_asset.to_string(),
-                    qty: ex.size,
-                    jpy_proceeds: jpy_total - fee_jpy,
-                    ts: ex.exec_date,
-                });
-            }
-            other => diagnostics.push(NormalizeDiagnostic {
+            events.push(Event::Acquire {
+                id: format!("bfexec-{}:acquire", ex.id),
+                asset: base_asset.clone(),
+                qty: net_qty,
+                jpy_cost: jpy_total + fee_jpy,
+                ts: ex.exec_date,
+            });
+        } else if side_raw.eq_ignore_ascii_case("SELL") {
+            events.push(Event::Dispose {
+                id: format!("bfexec-{}:dispose", ex.id),
+                asset: base_asset.clone(),
+                qty: ex.size,
+                jpy_proceeds: jpy_total - fee_jpy,
+                ts: ex.exec_date,
+            });
+        } else {
+            diagnostics.push(NormalizeDiagnostic {
                 row,
                 reason: format!(
                     "unsupported side: side='{}', execution_id='{}'",
-                    other, ex.id
+                    side_raw, ex.id
                 ),
-            }),
+            });
         }
     }
 
@@ -317,8 +307,11 @@ pub fn filter_executions_by_time(
 }
 
 pub fn build_executions_path(opts: &FetchOptions) -> String {
+    let product_code =
+        validate_product_code(&opts.product_code).unwrap_or_else(|_| opts.product_code.clone());
+
     let mut q = vec![
-        format!("product_code={}", opts.product_code),
+        format!("product_code={}", product_code),
         format!("count={}", opts.count),
     ];
 
@@ -351,7 +344,8 @@ fn build_auth_headers(api_key: &str, timestamp: &str, sign: &str) -> Result<Head
 }
 
 fn split_product(product_code: &str) -> Result<(String, String), String> {
-    let mut parts = product_code.split('_');
+    let normalized = validate_product_code(product_code)?;
+    let mut parts = normalized.split('_');
     let base = parts
         .next()
         .ok_or_else(|| format!("invalid product_code '{}': missing base", product_code))?;
@@ -365,4 +359,39 @@ fn split_product(product_code: &str) -> Result<(String, String), String> {
         base.trim().to_ascii_uppercase(),
         quote.trim().to_ascii_uppercase(),
     ))
+}
+
+fn validate_product_code(product_code: &str) -> Result<String, String> {
+    let code = product_code.trim().to_ascii_uppercase();
+    if code.is_empty() {
+        return Err("product_code must not be empty".to_string());
+    }
+    if !code
+        .chars()
+        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+    {
+        return Err(format!(
+            "invalid product_code '{}': only [A-Z0-9_] is allowed",
+            product_code
+        ));
+    }
+    Ok(code)
+}
+
+fn validate_fetch_window_options(opts: &FetchWindowOptions) -> Result<(), String> {
+    if opts.count_per_page == 0 {
+        return Err("count_per_page must be > 0".to_string());
+    }
+    if opts.max_pages == 0 {
+        return Err("max_pages must be > 0".to_string());
+    }
+    if let (Some(since), Some(until)) = (opts.since, opts.until) {
+        if since > until {
+            return Err(format!(
+                "invalid time window: since ({}) must be <= until ({})",
+                since, until
+            ));
+        }
+    }
+    Ok(())
 }
