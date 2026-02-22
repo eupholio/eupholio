@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use csv::StringRecord;
 use eupholio_core::event::Event;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -43,7 +44,7 @@ const HEADERS_EN: &[&str] = &[
     "Details",
 ];
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NormalizeDiagnostic {
     pub row: usize,
     pub reason: String,
