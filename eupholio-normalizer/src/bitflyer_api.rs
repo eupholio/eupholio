@@ -52,12 +52,14 @@ pub fn normalize_executions(
             return Err(format!("row {}: price must be > 0, got {}", row, ex.price));
         }
 
-        let fee = ex.commission.unwrap_or(Decimal::ZERO).abs();
+        let fee_base = ex.commission.unwrap_or(Decimal::ZERO).abs();
+        let fee_jpy = fee_base * ex.price;
         let jpy_total = ex.price * ex.size;
+        let side = ex.side.to_ascii_uppercase();
 
-        match ex.side.as_str() {
+        match side.as_str() {
             "BUY" => {
-                let net_qty = ex.size - fee;
+                let net_qty = ex.size - fee_base;
                 if net_qty <= Decimal::ZERO {
                     return Err(format!(
                         "row {}: buy qty must be > 0 after fee, got {}",
@@ -68,7 +70,7 @@ pub fn normalize_executions(
                     id: format!("bfexec-{}:acquire", ex.id),
                     asset: base_asset.to_string(),
                     qty: net_qty,
-                    jpy_cost: jpy_total,
+                    jpy_cost: jpy_total + fee_jpy,
                     ts: ex.exec_date,
                 });
             }
@@ -77,7 +79,7 @@ pub fn normalize_executions(
                     id: format!("bfexec-{}:dispose", ex.id),
                     asset: base_asset.to_string(),
                     qty: ex.size,
-                    jpy_proceeds: jpy_total - fee,
+                    jpy_proceeds: jpy_total - fee_jpy,
                     ts: ex.exec_date,
                 });
             }
@@ -97,7 +99,7 @@ pub fn normalize_executions(
     })
 }
 
-fn split_product(product_code: &str) -> Result<(&str, &str), String> {
+fn split_product(product_code: &str) -> Result<(String, String), String> {
     let mut parts = product_code.split('_');
     let base = parts
         .next()
@@ -108,5 +110,8 @@ fn split_product(product_code: &str) -> Result<(&str, &str), String> {
     if parts.next().is_some() {
         return Err(format!("invalid product_code '{}'", product_code));
     }
-    Ok((base, quote))
+    Ok((
+        base.trim().to_ascii_uppercase(),
+        quote.trim().to_ascii_uppercase(),
+    ))
 }
