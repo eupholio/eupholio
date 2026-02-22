@@ -1,5 +1,6 @@
 use std::process;
 
+use eupholio_core::config::{Config, CostMethod};
 use eupholio_normalizer::bitflyer_api::{BitflyerApiClient, FetchOptions};
 
 fn main() {
@@ -19,22 +20,39 @@ fn run() -> Result<(), String> {
         .get(2)
         .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(100);
+    let tax_year = args
+        .get(3)
+        .and_then(|v| v.parse::<i32>().ok())
+        .unwrap_or(2026);
 
-    let client = BitflyerApiClient::from_env()?;
-    let executions = client.fetch_executions_page(&FetchOptions {
+    let opts = FetchOptions {
         product_code,
         count,
         before: None,
         after: None,
-    })?;
+    };
 
-    println!("fetched executions: {}", executions.len());
-    for ex in executions.iter().take(3) {
-        println!(
-            "id={} side={} price={} size={} exec_date={}",
-            ex.id, ex.side, ex.price, ex.size, ex.exec_date
-        );
-    }
+    let client = BitflyerApiClient::from_env()?;
+    let normalized = client.fetch_and_normalize_page(&opts)?;
+
+    println!(
+        "normalized: events={} diagnostics={}",
+        normalized.events.len(),
+        normalized.diagnostics.len()
+    );
+
+    let report = eupholio_core::calculate(
+        Config {
+            method: CostMethod::MovingAverage,
+            tax_year,
+            rounding: Default::default(),
+        },
+        &normalized.events,
+    );
+
+    println!("realized_pnl_jpy={}", report.realized_pnl_jpy);
+    println!("income_jpy={}", report.income_jpy);
+    println!("positions={}", report.positions.len());
 
     Ok(())
 }

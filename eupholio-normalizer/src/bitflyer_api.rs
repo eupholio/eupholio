@@ -144,6 +144,11 @@ impl BitflyerApiClient {
 
         Err("unreachable retry loop".to_string())
     }
+
+    pub fn fetch_and_normalize_page(&self, opts: &FetchOptions) -> Result<NormalizeResult, String> {
+        let executions = self.fetch_executions_page(opts)?;
+        normalize_executions(&executions, &opts.product_code)
+    }
 }
 
 pub fn sign_request(secret: &str, timestamp: &str, method: &str, path: &str, body: &str) -> String {
