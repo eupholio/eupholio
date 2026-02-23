@@ -6,8 +6,11 @@ PR_LIST_LIMIT="${PR_LIST_LIMIT:-200}"
 MAX_THREAD_PAGES="${MAX_THREAD_PAGES:-100}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$REPO_ROOT/.." && pwd)}"
+REVIEW_AUDIT_SCRIPT="${REVIEW_AUDIT_SCRIPT:-$REPO_ROOT/scripts/pr_review_threads.sh}"
+REVIEW_AUDIT_LIMIT="${REVIEW_AUDIT_LIMIT:-20}"
+REVIEW_AUDIT_MAX_LINES="${REVIEW_AUDIT_MAX_LINES:-40}"
 
-if ! [[ "$REPO" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
+if ! [[ "$REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
   exit 1
 fi
@@ -17,6 +20,14 @@ if ! [[ "$PR_LIST_LIMIT" =~ ^[1-9][0-9]*$ ]]; then
 fi
 if ! [[ "$MAX_THREAD_PAGES" =~ ^[0-9]+$ ]] || [[ "$MAX_THREAD_PAGES" -le 0 ]]; then
   echo "Invalid MAX_THREAD_PAGES: '$MAX_THREAD_PAGES'. Expected positive integer." >&2
+  exit 1
+fi
+if ! [[ "$REVIEW_AUDIT_LIMIT" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Invalid REVIEW_AUDIT_LIMIT: '$REVIEW_AUDIT_LIMIT'. Expected positive integer." >&2
+  exit 1
+fi
+if ! [[ "$REVIEW_AUDIT_MAX_LINES" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Invalid REVIEW_AUDIT_MAX_LINES: '$REVIEW_AUDIT_MAX_LINES'. Expected positive integer." >&2
   exit 1
 fi
 
@@ -332,7 +343,19 @@ if [[ "$list_ok" -eq 1 ]]; then
 fi
 
 if [[ -n "$alerts" ]]; then
-  echo "Action required PRs detected:${alerts}"
+  extra_audit=""
+  if [[ -x "$REVIEW_AUDIT_SCRIPT" ]]; then
+    if audit_output=$("$REVIEW_AUDIT_SCRIPT" --repo "$REPO" --state open --limit "$REVIEW_AUDIT_LIMIT" 2>/dev/null); then
+      if [[ -n "$audit_output" && "$audit_output" != No\ unresolved\ review\ threads* ]]; then
+        extra_audit=$'\n\nActionable unresolved review threads (open PRs):\n'
+        extra_audit+="$(printf '%s\n' "$audit_output" | sed -n "1,${REVIEW_AUDIT_MAX_LINES}p")"
+      fi
+    else
+      set_partial_failure
+    fi
+  fi
+
+  echo "Action required PRs detected:${alerts}${extra_audit}"
 elif [[ "$PARTIAL_FAILURE" -eq 1 ]]; then
   echo "PR watchdog had partial errors (continuing)"
 else
