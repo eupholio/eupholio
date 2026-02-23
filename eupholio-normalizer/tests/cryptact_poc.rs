@@ -389,38 +389,81 @@ fn cryptact_normalize_phase5_lend_recover_borrow_return_defifee() {
     assert_eq!(got.diagnostics.len(), 0);
     assert_eq!(got.events.len(), 5);
 
-    assert!(matches!(
-        &got.events[0],
+    match &got.events[0] {
         Event::Transfer {
-            direction: eupholio_core::event::TransferDirection::Out,
+            asset,
+            qty,
+            direction,
             ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
         }
-    ));
-    assert!(matches!(
-        &got.events[1],
+        other => panic!("unexpected event[0]: {other:?}"),
+    }
+    match &got.events[1] {
         Event::Transfer {
-            direction: eupholio_core::event::TransferDirection::In,
+            asset,
+            qty,
+            direction,
             ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.05"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
         }
-    ));
-    assert!(matches!(
-        &got.events[2],
+        other => panic!("unexpected event[1]: {other:?}"),
+    }
+    match &got.events[2] {
         Event::Transfer {
-            direction: eupholio_core::event::TransferDirection::In,
+            asset,
+            qty,
+            direction,
             ..
+        } => {
+            assert_eq!(asset, "ETH");
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
         }
-    ));
-    assert!(matches!(
-        &got.events[3],
+        other => panic!("unexpected event[2]: {other:?}"),
+    }
+    match &got.events[3] {
         Event::Transfer {
-            direction: eupholio_core::event::TransferDirection::Out,
+            asset,
+            qty,
+            direction,
             ..
+        } => {
+            assert_eq!(asset, "ETH");
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
         }
-    ));
-    assert!(matches!(
-        &got.events[4],
-        Event::Dispose { jpy_proceeds, .. } if *jpy_proceeds == d("0")
-    ));
+        other => panic!("unexpected event[3]: {other:?}"),
+    }
+    match &got.events[4] {
+        Event::Dispose {
+            asset,
+            qty,
+            jpy_proceeds,
+            ..
+        } => {
+            assert_eq!(asset, "BNB");
+            assert_eq!(*qty, d("0.01"));
+            assert_eq!(*jpy_proceeds, d("0"));
+        }
+        other => panic!("unexpected event[4]: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_phase5_nonzero_fee_errors() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,LEND,bitFlyer,BTC,0.1,,JPY,1,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("non-zero phase-5 fee should fail");
+    assert!(err.contains("fee must be 0 for LEND in phase-5"));
 }
 
 #[test]

@@ -303,10 +303,13 @@ fn map_row(
                 ));
             }
 
-            let direction = if action == "RECOVER" || action == "BORROW" {
-                eupholio_core::event::TransferDirection::In
-            } else {
-                eupholio_core::event::TransferDirection::Out
+            let direction = match action {
+                "RECOVER" | "BORROW" => eupholio_core::event::TransferDirection::In,
+                "RETURN" => eupholio_core::event::TransferDirection::Out,
+                other => unreachable!(
+                    "unexpected action in RECOVER/BORROW/RETURN arm: {}",
+                    other
+                ),
             };
 
             Ok(RowOutcome::Event(Event::Transfer {
