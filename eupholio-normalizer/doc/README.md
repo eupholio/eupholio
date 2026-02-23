@@ -18,3 +18,5 @@ Documentation for source-specific normalization into `eupholio-core::event::Even
   - Scoped plan for Deposit/Withdrawal (JPY) transfer mapping in Coincheck
 - [22-normalizer-bitflyer-phase1-trade-mapping.md](./22-normalizer-bitflyer-phase1-trade-mapping.md)
   - Minimal BitFlyer phase-1 mapping for buy/sell trade rows
+- [25-cryptact-action-support-matrix.md](./25-cryptact-action-support-matrix.md)
+  - Current action/event mapping matrix and constraints for Cryptact custom CSV
