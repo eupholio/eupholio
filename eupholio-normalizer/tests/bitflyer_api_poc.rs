@@ -346,3 +346,111 @@ fn bitflyer_api_filter_executions_by_time_window_is_inclusive() {
     assert_eq!(filtered.len(), 1);
     assert_eq!(filtered[0].id, 2);
 }
+
+#[test]
+fn bitflyer_api_fetch_page_retries_on_5xx_then_succeeds() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_bg = Arc::clone(&calls);
+
+    let server = thread::spawn(move || {
+        for stream in listener.incoming().take(3) {
+            let mut stream = stream.expect("incoming stream");
+            let idx = calls_bg.fetch_add(1, Ordering::SeqCst);
+
+            let mut buf = [0_u8; 2048];
+            let _ = stream.read(&mut buf);
+
+            let (status, body) = if idx < 2 {
+                ("500 Internal Server Error", "[]")
+            } else {
+                (
+                    "200 OK",
+                    r#"[{"id": 1, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-01T00:00:00Z"}]"#,
+                )
+            };
+
+            let resp = format!(
+                "HTTP/1.1 {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                status,
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).expect("write response");
+        }
+    });
+
+    let client = BitflyerApiClient::new(
+        format!("http://{}", addr),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let page = client
+        .fetch_executions_page(&FetchOptions {
+            product_code: "BTC_JPY".to_string(),
+            count: 10,
+            before: None,
+            after: None,
+        })
+        .expect("should succeed after retries");
+
+    server.join().expect("server thread join");
+
+    assert_eq!(calls.load(Ordering::SeqCst), 3, "expected 3 attempts");
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0].id, 1);
+}
+
+#[test]
+fn bitflyer_api_fetch_page_does_not_retry_on_401() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_bg = Arc::clone(&calls);
+
+    let server = thread::spawn(move || {
+        for stream in listener.incoming().take(1) {
+            let mut stream = stream.expect("incoming stream");
+            let _ = calls_bg.fetch_add(1, Ordering::SeqCst);
+
+            let mut buf = [0_u8; 2048];
+            let _ = stream.read(&mut buf);
+
+            let body = "{}";
+            let resp = format!(
+                "HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).expect("write response");
+        }
+    });
+
+    let client = BitflyerApiClient::new(
+        format!("http://{}", addr),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let err = client
+        .fetch_executions_page(&FetchOptions {
+            product_code: "BTC_JPY".to_string(),
+            count: 10,
+            before: None,
+            after: None,
+        })
+        .expect_err("401 should fail immediately");
+
+    server.join().expect("server thread join");
+
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "expected single attempt");
+    assert!(err.contains("authentication failed"));
+}
