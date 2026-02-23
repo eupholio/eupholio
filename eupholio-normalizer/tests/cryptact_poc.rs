@@ -128,13 +128,128 @@ fn cryptact_normalize_ids_are_unique_per_row() {
 #[test]
 fn cryptact_normalize_unsupported_action_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
-2026/1/2 12:00:00,MINING,bitFlyer,BTC,0.1,0,JPY,0,JPY,
+2026/1/2 12:00:00,TIP,bitFlyer,BTC,0.1,0,JPY,0,JPY,
 "#;
 
     let got = normalize_custom_csv(csv).expect("should parse");
     assert_eq!(got.events.len(), 0);
     assert_eq!(got.diagnostics.len(), 1);
     assert!(got.diagnostics[0].reason.contains("unsupported action"));
+}
+
+#[test]
+fn cryptact_normalize_pay_to_dispose() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,500000,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 1);
+    match &got.events[0] {
+        Event::Dispose {
+            asset,
+            qty,
+            jpy_proceeds,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.01"));
+            assert_eq!(*jpy_proceeds, d("5000"));
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_pay_missing_price_uses_zero_proceeds() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 1);
+    match &got.events[0] {
+        Event::Dispose { jpy_proceeds, .. } => assert_eq!(*jpy_proceeds, d("0")),
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_mining_to_income() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,MINING,bitFlyer,ETH,1,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 1);
+    match &got.events[0] {
+        Event::Income {
+            asset,
+            qty,
+            jpy_value,
+            ..
+        } => {
+            assert_eq!(asset, "ETH");
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*jpy_value, d("0"));
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_pay_and_mining_non_jpy_fee_ccy_to_diagnostics() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,500000,JPY,0,BTC,
+2026/1/3 12:00:00,MINING,bitFlyer,ETH,1,1000,JPY,0,ETH,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 0);
+    assert_eq!(got.diagnostics.len(), 2);
+}
+
+#[test]
+fn cryptact_normalize_pay_nonzero_fee_errors() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,500000,JPY,10,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("non-zero PAY fee should fail");
+    assert!(err.contains("fee must be 0 for PAY"));
+}
+
+#[test]
+fn cryptact_normalize_sendfee_nonzero_fee_errors() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,SENDFEE,bitFlyer,BTC,0.0001,,JPY,10,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("non-zero sendfee fee should fail");
+    assert!(err.contains("fee must be 0 for SENDFEE"));
+}
+
+#[test]
+fn cryptact_normalize_sendfee_to_transfer_out() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,SENDFEE,bitFlyer,BTC,0.0001,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 1);
+    match &got.events[0] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.0001"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
 }
 
 fn d(v: &str) -> Decimal {

@@ -120,6 +120,68 @@ fn map_row(
     }
 
     match action.as_str() {
+        "PAY" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported PAY fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for PAY in phase-2, got {}", fee));
+            }
+
+            let jpy_proceeds = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
+            Ok(RowOutcome::Event(Event::Dispose {
+                id: format!("{}:pay", id_base),
+                asset: base_asset,
+                qty,
+                jpy_proceeds,
+                ts,
+            }))
+        }
+        "MINING" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported MINING fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for MINING in phase-2, got {}", fee));
+            }
+
+            let jpy_value = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
+            Ok(RowOutcome::Event(Event::Income {
+                id: format!("{}:mining", id_base),
+                asset: base_asset,
+                qty,
+                jpy_value,
+                ts,
+            }))
+        }
+        "SENDFEE" => {
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for SENDFEE, got {}", fee));
+            }
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported SENDFEE fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+
+            Ok(RowOutcome::Event(Event::Transfer {
+                id: format!("{}:sendfee", id_base),
+                asset: base_asset,
+                qty,
+                direction: eupholio_core::event::TransferDirection::Out,
+                ts,
+            }))
+        }
         "BUY" => {
             let price = required_positive_price(price_opt, &action)?;
             if fee_ccy != counter && fee_ccy != base_asset {
