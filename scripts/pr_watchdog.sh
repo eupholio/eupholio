@@ -260,7 +260,12 @@ if [[ "$list_ok" -eq 1 ]]; then
       unresolved="$prev_unresolved"
     fi
 
-    if ! new_fail_count=$(jq -n --argjson cur "$failing" --argjson prev "$prev_failing" '($cur - $prev) | length' 2>/dev/null); then
+    new_failing='[]'
+    if ! new_failing=$(jq -n --argjson cur "$failing" --argjson prev "$prev_failing" '($cur - $prev) | unique | sort' 2>/dev/null); then
+      set_partial_failure
+      new_failing='[]'
+    fi
+    if ! new_fail_count=$(echo "$new_failing" | jq 'length' 2>/dev/null); then
       set_partial_failure
       new_fail_count=0
     fi
@@ -269,7 +274,7 @@ if [[ "$list_ok" -eq 1 ]]; then
     reasons=""
     if [[ "$new_fail_count" -gt 0 ]]; then
       need_alert=1
-      new_failing_names=$(echo "$failing" | jq -r 'join(", ")' 2>/dev/null || printf '')
+      new_failing_names=$(echo "$new_failing" | jq -r 'join(", ")' 2>/dev/null || printf '')
       if [[ -n "$new_failing_names" ]]; then
         reasons="New failing checks: $new_failing_names"
       else
