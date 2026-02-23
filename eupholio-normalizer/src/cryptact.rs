@@ -80,7 +80,11 @@ pub fn normalize_custom_csv(raw: &str) -> Result<NormalizeResult, String> {
     })
 }
 
-fn map_row(index: &HashMap<String, usize>, row: &StringRecord, row_num: usize) -> Result<RowOutcome, String> {
+fn map_row(
+    index: &HashMap<String, usize>,
+    row: &StringRecord,
+    row_num: usize,
+) -> Result<RowOutcome, String> {
     let ts_raw = get(index, row, "Timestamp")?;
     let ts = parse_datetime(ts_raw)?;
     let action = get(index, row, "Action")?.to_ascii_uppercase();
@@ -164,7 +168,11 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord, row_num: usize) -
             } else {
                 price * qty
             };
-            let disposed_qty = if fee_ccy == base_asset { qty + fee } else { qty };
+            let disposed_qty = if fee_ccy == base_asset {
+                qty + fee
+            } else {
+                qty
+            };
 
             Ok(RowOutcome::Event(Event::Dispose {
                 id: format!("{}:dispose", id_base),
