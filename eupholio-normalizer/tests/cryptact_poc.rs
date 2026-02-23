@@ -54,6 +54,78 @@ fn cryptact_normalize_rejects_missing_required_header() {
 }
 
 #[test]
+fn cryptact_normalize_buy_with_base_fee_reduces_acquired_qty() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,BUY,bitFlyer,ETH,2,300000,JPY,0.01,ETH,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.diagnostics.len(), 0);
+    assert_eq!(got.events.len(), 1);
+
+    match &got.events[0] {
+        Event::Acquire { qty, jpy_cost, .. } => {
+            assert_eq!(*qty, d("1.99"));
+            assert_eq!(*jpy_cost, d("600000"));
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_sell_with_base_fee_increases_disposed_qty() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,SELL,bitFlyer,ETH,2,300000,JPY,0.01,ETH,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.diagnostics.len(), 0);
+    assert_eq!(got.events.len(), 1);
+
+    match &got.events[0] {
+        Event::Dispose {
+            qty, jpy_proceeds, ..
+        } => {
+            assert_eq!(*qty, d("2.01"));
+            assert_eq!(*jpy_proceeds, d("600000"));
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_buy_missing_price_is_error() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,BUY,bitFlyer,BTC,0.1,,JPY,120,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("missing price should fail");
+    assert!(err.contains("price must be provided for BUY"));
+}
+
+#[test]
+fn cryptact_normalize_header_lookup_is_case_insensitive() {
+    let csv = r#"timestamp,action,source,base,volume,price,counter,fee,feeccy,comment
+2026/1/2 12:00:00,BUY,bitFlyer,BTC,0.1,6000000,JPY,120,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("lowercase headers should parse");
+    assert_eq!(got.events.len(), 1);
+}
+
+#[test]
+fn cryptact_normalize_ids_are_unique_per_row() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,BUY,bitFlyer,BTC,0.1,6000000,JPY,120,JPY,
+2026/1/2 12:00:00,BUY,bitFlyer,BTC,0.2,6100000,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 2);
+    assert_ne!(got.events[0].id(), got.events[1].id());
+}
+
+#[test]
 fn cryptact_normalize_unsupported_action_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
 2026/1/2 12:00:00,MINING,bitFlyer,BTC,0.1,0,JPY,0,JPY,
