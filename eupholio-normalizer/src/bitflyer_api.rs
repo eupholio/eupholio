@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use eupholio_core::event::Event;
 use hmac::{Hmac, Mac};
 use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use sha2::Sha256;
@@ -149,9 +149,18 @@ impl BitflyerApiClient {
 
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
+                let retry_after = parse_retry_after_secs(resp.headers());
                 let _ = resp.text();
-                thread::sleep(backoff);
-                backoff *= 2;
+
+                let (sleep_for, used_backoff) = retry_after
+                    .filter(|secs| *secs > 0)
+                    .map(|secs| (Duration::from_secs(secs), false))
+                    .unwrap_or((backoff, true));
+
+                thread::sleep(sleep_for);
+                if used_backoff {
+                    backoff *= 2;
+                }
                 continue;
             }
 
@@ -391,6 +400,24 @@ fn validate_product_code(product_code: &str) -> Result<String, String> {
     Ok(code)
 }
 
+fn parse_retry_after_secs(headers: &HeaderMap) -> Option<u64> {
+    const MAX_RETRY_AFTER_SECS: u64 = 300;
+
+    let raw = headers.get(RETRY_AFTER)?.to_str().ok()?.trim();
+
+    if let Ok(secs) = raw.parse::<u64>() {
+        return Some(secs.min(MAX_RETRY_AFTER_SECS));
+    }
+
+    chrono::DateTime::parse_from_rfc2822(raw)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc))
+        .and_then(|retry_at| {
+            let delta = retry_at.signed_duration_since(Utc::now()).num_seconds();
+            (delta > 0).then_some((delta as u64).min(MAX_RETRY_AFTER_SECS))
+        })
+}
+
 fn sanitize_diagnostic_value(s: &str) -> String {
     const MAX_LEN: usize = 200;
 
@@ -425,4 +452,33 @@ fn validate_fetch_window_options(opts: &FetchWindowOptions) -> Result<(), String
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_retry_after_secs;
+    use chrono::{Duration as ChronoDuration, Utc};
+    use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER};
+
+    #[test]
+    fn parse_retry_after_secs_caps_large_delta_seconds() {
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, HeaderValue::from_static("9999"));
+
+        assert_eq!(parse_retry_after_secs(&headers), Some(300));
+    }
+
+    #[test]
+    fn parse_retry_after_secs_caps_large_http_date_delta() {
+        let mut headers = HeaderMap::new();
+        let future = (Utc::now() + ChronoDuration::seconds(600))
+            .format("%a, %d %b %Y %H:%M:%S GMT")
+            .to_string();
+        headers.insert(
+            RETRY_AFTER,
+            HeaderValue::from_str(&future).expect("valid retry-after"),
+        );
+
+        assert_eq!(parse_retry_after_secs(&headers), Some(300));
+    }
 }
