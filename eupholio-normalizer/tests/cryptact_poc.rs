@@ -458,12 +458,19 @@ fn cryptact_normalize_phase5_lend_recover_borrow_return_defifee() {
 
 #[test]
 fn cryptact_normalize_phase5_nonzero_fee_errors() {
-    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
-2026/1/2 12:00:00,LEND,bitFlyer,BTC,0.1,,JPY,1,JPY,
-"#;
+    for action in ["LEND", "RECOVER", "BORROW", "RETURN", "DEFIFEE"] {
+        let csv = format!(
+            "Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment\n2026/1/2 12:00:00,{},bitFlyer,BTC,0.1,,JPY,1,JPY,\n",
+            action
+        );
 
-    let err = normalize_custom_csv(csv).expect_err("non-zero phase-5 fee should fail");
-    assert!(err.contains("fee must be 0 for LEND in phase-5"));
+        let err = normalize_custom_csv(&csv)
+            .expect_err(&format!("non-zero {} fee should fail", action));
+        assert!(
+            err.contains(&format!("fee must be 0 for {} in phase-5", action)),
+            "unexpected error for {action}: {err}"
+        );
+    }
 }
 
 #[test]

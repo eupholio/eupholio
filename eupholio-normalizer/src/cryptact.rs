@@ -268,26 +268,7 @@ fn map_row(
                 ts,
             }))
         }
-        "LEND" => {
-            if fee_ccy != counter {
-                return Ok(RowOutcome::Unsupported(format!(
-                    "unsupported LEND fee currency: fee_ccy='{}', counter='{}'",
-                    sanitize_diagnostic_value(&fee_ccy),
-                    sanitize_diagnostic_value(&counter)
-                )));
-            }
-            if fee != Decimal::ZERO {
-                return Err(format!("fee must be 0 for LEND in phase-5, got {}", fee));
-            }
-            Ok(RowOutcome::Event(Event::Transfer {
-                id: format!("{}:lend", id_base),
-                asset: base_asset,
-                qty,
-                direction: eupholio_core::event::TransferDirection::Out,
-                ts,
-            }))
-        }
-        "RECOVER" | "BORROW" | "RETURN" => {
+        "RECOVER" | "BORROW" | "LEND" | "RETURN" => {
             if fee_ccy != counter {
                 return Ok(RowOutcome::Unsupported(format!(
                     "unsupported {} fee currency: fee_ccy='{}', counter='{}'",
@@ -305,8 +286,11 @@ fn map_row(
 
             let direction = match action.as_str() {
                 "RECOVER" | "BORROW" => eupholio_core::event::TransferDirection::In,
-                "RETURN" => eupholio_core::event::TransferDirection::Out,
-                other => unreachable!("unexpected action in RECOVER/BORROW/RETURN arm: {}", other),
+                "LEND" | "RETURN" => eupholio_core::event::TransferDirection::Out,
+                other => unreachable!(
+                    "unexpected action in RECOVER/BORROW/LEND/RETURN arm: {}",
+                    other
+                ),
             };
 
             Ok(RowOutcome::Event(Event::Transfer {
