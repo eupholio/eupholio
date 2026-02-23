@@ -45,6 +45,12 @@ A golden fixture should include:
 - expected hard error (if any)
 - rationale (short)
 
+Privacy/anonymization requirements:
+- follow `16-fixture-policy.md` for fixture hygiene
+- remove or anonymize user-identifying IDs/account identifiers
+- avoid raw personally identifying timestamps/amount patterns when not required
+- keep fixtures semantically representative while safe to commit
+
 Coverage categories (must include all):
 - happy path (major actions)
 - boundary values (0, tiny decimals, large values)
@@ -107,12 +113,12 @@ new-adapter/
   - asset = Base.upper()
   - qty = Volume
   - jpy_cost = Price * Volume + Fee(if fee_ccy==JPY)
-- validations:
+- preconditions (must hold for this rule to emit an event):
   - volume > 0
   - price > 0
-- diagnostics:
+- diagnostics (unsupported but non-fatal for batch normalization):
   - fee_ccy not in {JPY, Base}
-- errors:
+- hard errors (row is invalid and should fail fast):
   - volume <= 0
   - price <= 0
 ```
