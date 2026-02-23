@@ -297,7 +297,10 @@ fn map_row(
                 )));
             }
             if fee != Decimal::ZERO {
-                return Err(format!("fee must be 0 for {} in phase-5, got {}", action, fee));
+                return Err(format!(
+                    "fee must be 0 for {} in phase-5, got {}",
+                    action, fee
+                ));
             }
 
             let direction = if action == "RECOVER" || action == "BORROW" {

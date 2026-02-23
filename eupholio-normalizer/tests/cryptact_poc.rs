@@ -128,7 +128,7 @@ fn cryptact_normalize_ids_are_unique_per_row() {
 #[test]
 fn cryptact_normalize_unsupported_action_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
-2026/1/2 12:00:00,RETURN,bitFlyer,BTC,0.1,0,JPY,0,JPY,
+2026/1/2 12:00:00,AIRDROP,bitFlyer,BTC,0.1,0,JPY,0,JPY,
 "#;
 
     let got = normalize_custom_csv(csv).expect("should parse");
@@ -426,7 +426,7 @@ fn cryptact_normalize_phase5_lend_recover_borrow_return_defifee() {
 #[test]
 fn cryptact_normalize_phase5_cash_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
-2026/1/2 12:00:00,CASH,manual,JPY,0,0,JPY,2000,JPY,
+2026/1/2 12:00:00,CASH,manual,JPY,1,0,JPY,2000,JPY,
 "#;
 
     let got = normalize_custom_csv(csv).expect("should parse");
