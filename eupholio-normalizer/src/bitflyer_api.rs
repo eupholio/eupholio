@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use eupholio_core::event::Event;
 use hmac::{Hmac, Mac};
 use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use sha2::Sha256;
@@ -149,8 +149,15 @@ impl BitflyerApiClient {
 
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
+                let retry_after = parse_retry_after_secs(&resp.headers().clone());
                 let _ = resp.text();
-                thread::sleep(backoff);
+
+                let sleep_for = retry_after
+                    .map(Duration::from_secs)
+                    .filter(|d| *d > Duration::ZERO)
+                    .unwrap_or(backoff);
+
+                thread::sleep(sleep_for);
                 backoff *= 2;
                 continue;
             }
@@ -389,6 +396,13 @@ fn validate_product_code(product_code: &str) -> Result<String, String> {
         ));
     }
     Ok(code)
+}
+
+fn parse_retry_after_secs(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get(RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.trim().parse::<u64>().ok())
 }
 
 fn sanitize_diagnostic_value(s: &str) -> String {
