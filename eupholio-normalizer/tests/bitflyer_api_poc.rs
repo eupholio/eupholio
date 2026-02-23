@@ -1,3 +1,8 @@
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+use std::thread;
+
 use chrono::{DateTime, Utc};
 use eupholio_core::event::Event;
 use eupholio_normalizer::bitflyer_api::{
@@ -197,4 +202,69 @@ fn bitflyer_api_window_rejects_invalid_since_until() {
 
     assert!(err.contains("since"));
     assert!(err.contains("until"));
+}
+
+#[test]
+fn bitflyer_api_window_dedupes_and_stops_on_non_decreasing_before() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_bg = Arc::clone(&calls);
+
+    let server = thread::spawn(move || {
+        for stream in listener.incoming().take(2) {
+            let mut stream = stream.expect("incoming stream");
+            let idx = calls_bg.fetch_add(1, Ordering::SeqCst);
+
+            let mut buf = [0_u8; 2048];
+            let _ = stream.read(&mut buf);
+
+            let body = if idx == 0 {
+                r#"[
+                  {"id": 100, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-02T00:00:00Z"},
+                  {"id": 99, "side": "SELL", "price": "110", "size": "0.5", "exec_date": "2026-01-01T00:00:00Z"}
+                ]"#
+            } else {
+                // Repeat oldest id=99 to verify de-dup + before-progress guard break.
+                r#"[
+                  {"id": 99, "side": "SELL", "price": "110", "size": "0.5", "exec_date": "2026-01-01T00:00:00Z"}
+                ]"#
+            };
+
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream
+                .write_all(resp.as_bytes())
+                .expect("write response");
+        }
+    });
+
+    let client = BitflyerApiClient::new(
+        format!("http://{}", addr),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let got = client
+        .fetch_executions_window(&FetchWindowOptions {
+            product_code: "BTC_JPY".to_string(),
+            count_per_page: 100,
+            max_pages: 10,
+            since: None,
+            until: None,
+        })
+        .expect("window fetch should succeed");
+
+    server.join().expect("server thread join");
+
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "expected exactly 2 page fetches");
+    assert_eq!(got.len(), 2, "duplicate execution id should be de-duplicated");
+    assert!(got.iter().any(|e| e.id == 100));
+    assert!(got.iter().any(|e| e.id == 99));
 }
