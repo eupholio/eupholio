@@ -9,6 +9,7 @@ WORKSPACE_ROOT="${WORKSPACE_ROOT:-$(cd "$REPO_ROOT/.." && pwd)}"
 REVIEW_AUDIT_SCRIPT="${REVIEW_AUDIT_SCRIPT:-$REPO_ROOT/scripts/pr_review_threads.sh}"
 REVIEW_AUDIT_LIMIT="${REVIEW_AUDIT_LIMIT:-20}"
 REVIEW_AUDIT_MAX_LINES="${REVIEW_AUDIT_MAX_LINES:-40}"
+PR_UPDATED_WITHIN_HOURS="${PR_UPDATED_WITHIN_HOURS:-168}"
 
 if ! [[ "$REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
@@ -28,6 +29,10 @@ if ! [[ "$REVIEW_AUDIT_LIMIT" =~ ^[1-9][0-9]*$ ]]; then
 fi
 if ! [[ "$REVIEW_AUDIT_MAX_LINES" =~ ^[1-9][0-9]*$ ]]; then
   echo "Invalid REVIEW_AUDIT_MAX_LINES: '$REVIEW_AUDIT_MAX_LINES'. Expected positive integer." >&2
+  exit 1
+fi
+if ! [[ "$PR_UPDATED_WITHIN_HOURS" =~ ^[0-9]+$ ]]; then
+  echo "Invalid PR_UPDATED_WITHIN_HOURS: '$PR_UPDATED_WITHIN_HOURS'. Expected non-negative integer." >&2
   exit 1
 fi
 
@@ -192,7 +197,11 @@ count_unresolved_threads() {
 
 pr_lines=""
 list_ok=1
-if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit "$PR_LIST_LIMIT" --json number,url --jq '.[] | "\(.number)\t\(.url)"' 2>/dev/null); then
+if ! pr_lines=$(gh pr list --repo "$REPO" --state open --limit "$PR_LIST_LIMIT" --json number,url,updatedAt --jq '
+  .[]
+  | select((env.PR_UPDATED_WITHIN_HOURS|tonumber) == 0 or ((.updatedAt | fromdateiso8601) >= (now - ((env.PR_UPDATED_WITHIN_HOURS|tonumber) * 3600))))
+  | "\(.number)\t\(.url)"
+' 2>/dev/null); then
   list_ok=0
   set_partial_failure
   echo "WARNING: PR list fetch failed; using potentially stale state from '$STATE_FILE'." >&2
