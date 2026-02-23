@@ -128,7 +128,7 @@ fn cryptact_normalize_ids_are_unique_per_row() {
 #[test]
 fn cryptact_normalize_unsupported_action_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
-2026/1/2 12:00:00,RETURN,bitFlyer,BTC,0.1,0,JPY,0,JPY,
+2026/1/2 12:00:00,AIRDROP,bitFlyer,BTC,0.1,0,JPY,0,JPY,
 "#;
 
     let got = normalize_custom_csv(csv).expect("should parse");
@@ -373,6 +373,140 @@ fn cryptact_normalize_loss_and_reduce() {
         }
         other => panic!("unexpected reduce event: {other:?}"),
     }
+}
+
+#[test]
+fn cryptact_normalize_phase5_lend_recover_borrow_return_defifee() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,LEND,bitFlyer,BTC,0.1,,JPY,0,JPY,
+2026/1/3 12:00:00,RECOVER,bitFlyer,BTC,0.05,,JPY,0,JPY,
+2026/1/4 12:00:00,BORROW,bitFlyer,ETH,1,,JPY,0,JPY,
+2026/1/5 12:00:00,RETURN,bitFlyer,ETH,1,,JPY,0,JPY,
+2026/1/6 12:00:00,DEFIFEE,bitFlyer,BNB,0.01,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.diagnostics.len(), 0);
+    assert_eq!(got.events.len(), 5);
+
+    match &got.events[0] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
+        }
+        other => panic!("unexpected event[0]: {other:?}"),
+    }
+    match &got.events[1] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.05"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
+        }
+        other => panic!("unexpected event[1]: {other:?}"),
+    }
+    match &got.events[2] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "ETH");
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::In);
+        }
+        other => panic!("unexpected event[2]: {other:?}"),
+    }
+    match &got.events[3] {
+        Event::Transfer {
+            asset,
+            qty,
+            direction,
+            ..
+        } => {
+            assert_eq!(asset, "ETH");
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
+        }
+        other => panic!("unexpected event[3]: {other:?}"),
+    }
+    match &got.events[4] {
+        Event::Dispose {
+            asset,
+            qty,
+            jpy_proceeds,
+            ..
+        } => {
+            assert_eq!(asset, "BNB");
+            assert_eq!(*qty, d("0.01"));
+            assert_eq!(*jpy_proceeds, d("0"));
+        }
+        other => panic!("unexpected event[4]: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_phase5_non_jpy_fee_ccy_to_diagnostics() {
+    for action in ["LEND", "RECOVER", "BORROW", "RETURN", "DEFIFEE"] {
+        let csv = format!(
+            "Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment\n2026/1/2 12:00:00,{},bitFlyer,BTC,0.1,,JPY,0,BTC,\n",
+            action
+        );
+
+        let got = normalize_custom_csv(&csv).expect("should parse");
+        assert_eq!(
+            got.events.len(),
+            0,
+            "non-JPY fee_ccy for {} should not produce events",
+            action
+        );
+        assert_eq!(
+            got.diagnostics.len(),
+            1,
+            "non-JPY fee_ccy for {} should produce a diagnostic",
+            action
+        );
+    }
+}
+
+#[test]
+fn cryptact_normalize_phase5_nonzero_fee_errors() {
+    for action in ["LEND", "RECOVER", "BORROW", "RETURN", "DEFIFEE"] {
+        let csv = format!(
+            "Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment\n2026/1/2 12:00:00,{},bitFlyer,BTC,0.1,,JPY,1,JPY,\n",
+            action
+        );
+
+        let err =
+            normalize_custom_csv(&csv).expect_err(&format!("non-zero {} fee should fail", action));
+        assert!(
+            err.contains(&format!("fee must be 0 for {} in phase-5", action)),
+            "unexpected error for {action}: {err}"
+        );
+    }
+}
+
+#[test]
+fn cryptact_normalize_phase5_cash_to_diagnostic() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,CASH,manual,JPY,1,0,JPY,2000,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 0);
+    assert_eq!(got.diagnostics.len(), 1);
+    assert!(got.diagnostics[0].reason.contains("CASH is not supported"));
 }
 
 fn d(v: &str) -> Decimal {

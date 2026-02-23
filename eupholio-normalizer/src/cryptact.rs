@@ -268,6 +268,61 @@ fn map_row(
                 ts,
             }))
         }
+        "RECOVER" | "BORROW" | "LEND" | "RETURN" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported {} fee currency: fee_ccy='{}', counter='{}'",
+                    action,
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!(
+                    "fee must be 0 for {} in phase-5, got {}",
+                    action, fee
+                ));
+            }
+
+            let direction = match action.as_str() {
+                "RECOVER" | "BORROW" => eupholio_core::event::TransferDirection::In,
+                "LEND" | "RETURN" => eupholio_core::event::TransferDirection::Out,
+                other => unreachable!(
+                    "unexpected action in RECOVER/BORROW/LEND/RETURN arm: {}",
+                    other
+                ),
+            };
+
+            Ok(RowOutcome::Event(Event::Transfer {
+                id: format!("{}:{}", id_base, action.to_ascii_lowercase()),
+                asset: base_asset,
+                qty,
+                direction,
+                ts,
+            }))
+        }
+        "DEFIFEE" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported DEFIFEE fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for DEFIFEE in phase-5, got {}", fee));
+            }
+            Ok(RowOutcome::Event(Event::Dispose {
+                id: format!("{}:defifee", id_base),
+                asset: base_asset,
+                qty,
+                jpy_proceeds: Decimal::ZERO,
+                ts,
+            }))
+        }
+        "CASH" => Ok(RowOutcome::Unsupported(
+            "CASH is not supported in rust-core Event model yet".to_string(),
+        )),
         "BUY" => {
             let price = required_positive_price(price_opt, &action)?;
             if fee_ccy != counter && fee_ccy != base_asset {
