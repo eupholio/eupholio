@@ -128,6 +128,9 @@ fn map_row(
                     sanitize_diagnostic_value(&counter)
                 )));
             }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for PAY in phase-2, got {}", fee));
+            }
 
             let jpy_proceeds = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
             Ok(RowOutcome::Event(Event::Dispose {
@@ -146,6 +149,12 @@ fn map_row(
                     sanitize_diagnostic_value(&counter)
                 )));
             }
+            if fee != Decimal::ZERO {
+                return Err(format!(
+                    "fee must be 0 for MINING in phase-2, got {}",
+                    fee
+                ));
+            }
 
             let jpy_value = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
             Ok(RowOutcome::Event(Event::Income {
@@ -160,10 +169,11 @@ fn map_row(
             if fee != Decimal::ZERO {
                 return Err(format!("fee must be 0 for SENDFEE, got {}", fee));
             }
-            if fee_ccy != "JPY" {
+            if fee_ccy != counter {
                 return Ok(RowOutcome::Unsupported(format!(
-                    "unsupported SENDFEE fee currency: fee_ccy='{}'",
-                    sanitize_diagnostic_value(&fee_ccy)
+                    "unsupported SENDFEE fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
                 )));
             }
 

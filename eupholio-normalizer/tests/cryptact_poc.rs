@@ -161,6 +161,20 @@ fn cryptact_normalize_pay_to_dispose() {
 }
 
 #[test]
+fn cryptact_normalize_pay_missing_price_uses_zero_proceeds() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 1);
+    match &got.events[0] {
+        Event::Dispose { jpy_proceeds, .. } => assert_eq!(*jpy_proceeds, d("0")),
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
 fn cryptact_normalize_mining_to_income() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
 2026/1/2 12:00:00,MINING,bitFlyer,ETH,1,,JPY,0,JPY,
@@ -181,6 +195,38 @@ fn cryptact_normalize_mining_to_income() {
         }
         other => panic!("unexpected event: {other:?}"),
     }
+}
+
+#[test]
+fn cryptact_normalize_pay_and_mining_non_jpy_fee_ccy_to_diagnostics() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,500000,JPY,0,BTC,
+2026/1/3 12:00:00,MINING,bitFlyer,ETH,1,1000,JPY,0,ETH,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 0);
+    assert_eq!(got.diagnostics.len(), 2);
+}
+
+#[test]
+fn cryptact_normalize_pay_nonzero_fee_errors() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,PAY,bitFlyer,BTC,0.01,500000,JPY,10,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("non-zero PAY fee should fail");
+    assert!(err.contains("fee must be 0 for PAY"));
+}
+
+#[test]
+fn cryptact_normalize_sendfee_nonzero_fee_errors() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,SENDFEE,bitFlyer,BTC,0.0001,,JPY,10,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("non-zero sendfee fee should fail");
+    assert!(err.contains("fee must be 0 for SENDFEE"));
 }
 
 #[test]
