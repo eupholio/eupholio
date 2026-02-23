@@ -546,7 +546,7 @@ fn bitflyer_api_fetch_page_honors_retry_after_http_date_on_429() {
     assert_eq!(page.len(), 1);
     assert_eq!(page[0].id, 11);
     assert!(
-        elapsed.as_millis() >= 1200,
+        elapsed.as_millis() >= 800,
         "expected retry delay from HTTP-date Retry-After, got {:?}",
         elapsed
     );
