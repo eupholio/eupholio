@@ -182,6 +182,89 @@ fn map_row(
                 ts,
             }))
         }
+        "BONUS" | "LENDING" | "STAKING" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported {} fee currency: fee_ccy='{}', counter='{}'",
+                    action,
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for {}, got {}", action, fee));
+            }
+
+            let jpy_value = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
+            Ok(RowOutcome::Event(Event::Income {
+                id: format!("{}:{}", id_base, action.to_ascii_lowercase()),
+                asset: base_asset,
+                qty,
+                jpy_value,
+                ts,
+            }))
+        }
+        "TIP" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported TIP fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for TIP in phase-4, got {}", fee));
+            }
+
+            let jpy_proceeds = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
+            Ok(RowOutcome::Event(Event::Dispose {
+                id: format!("{}:tip", id_base),
+                asset: base_asset,
+                qty,
+                jpy_proceeds,
+                ts,
+            }))
+        }
+        "LOSS" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported LOSS fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for LOSS in phase-4, got {}", fee));
+            }
+
+            Ok(RowOutcome::Event(Event::Dispose {
+                id: format!("{}:loss", id_base),
+                asset: base_asset,
+                qty,
+                jpy_proceeds: Decimal::ZERO,
+                ts,
+            }))
+        }
+        "REDUCE" => {
+            if fee_ccy != counter {
+                return Ok(RowOutcome::Unsupported(format!(
+                    "unsupported REDUCE fee currency: fee_ccy='{}', counter='{}'",
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&counter)
+                )));
+            }
+            if fee != Decimal::ZERO {
+                return Err(format!("fee must be 0 for REDUCE in phase-4, got {}", fee));
+            }
+
+            Ok(RowOutcome::Event(Event::Transfer {
+                id: format!("{}:reduce", id_base),
+                asset: base_asset,
+                qty,
+                direction: eupholio_core::event::TransferDirection::Out,
+                ts,
+            }))
+        }
         "BUY" => {
             let price = required_positive_price(price_opt, &action)?;
             if fee_ccy != counter && fee_ccy != base_asset {
