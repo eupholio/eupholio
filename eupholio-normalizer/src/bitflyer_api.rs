@@ -105,14 +105,14 @@ impl BitflyerApiClient {
             .map_err(|e| format!("failed to build http client: {e}"))?;
 
         Ok(Self {
-            base_url,
+            base_url: base_url.trim_end_matches('/').to_string(),
             credentials,
             http,
         })
     }
 
     pub fn fetch_executions_page(&self, opts: &FetchOptions) -> Result<Vec<Execution>, String> {
-        let path_with_query = build_executions_path(opts);
+        let path_with_query = build_executions_path(opts)?;
         let url = format!("{}{}", self.base_url, path_with_query);
 
         let mut backoff = Duration::from_millis(300);
@@ -149,21 +149,17 @@ impl BitflyerApiClient {
 
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
+                let _ = resp.text();
                 thread::sleep(backoff);
                 backoff *= 2;
                 continue;
             }
 
-            let body = resp.text().unwrap_or_default();
-            return Err(format!(
-                "bitFlyer API error: status={}, body={}{}",
-                status.as_u16(),
-                body.chars().take(200).collect::<String>(),
-                if body.len() > 200 { "…" } else { "" }
-            ));
+            let _ = resp.text();
+            return Err(format!("bitFlyer API error: status={}", status.as_u16()));
         }
 
-        Err("unreachable retry loop".to_string())
+        unreachable!("unreachable retry loop in fetch_executions_page")
     }
 
     pub fn fetch_and_normalize_page(&self, opts: &FetchOptions) -> Result<NormalizeResult, String> {
@@ -175,8 +171,11 @@ impl BitflyerApiClient {
         &self,
         opts: &FetchWindowOptions,
     ) -> Result<Vec<Execution>, String> {
+        validate_fetch_window_options(opts)?;
+
         let mut all = Vec::new();
         let mut before: Option<i64> = None;
+        let mut seen_ids = std::collections::HashSet::new();
 
         for _ in 0..opts.max_pages {
             let page = self.fetch_executions_page(&FetchOptions {
@@ -191,28 +190,30 @@ impl BitflyerApiClient {
             }
 
             let filtered = filter_executions_by_time(&page, opts.since, opts.until);
-            all.extend(filtered);
-
-            // bitFlyer `before` is an upper bound on execution id (exclusive-ish in practice);
-            // stepping to oldest id keeps pagination moving toward older records.
-            let oldest_id = page.iter().map(|e| e.id).min();
-            before = oldest_id;
-
-            if let (Some(since), Some(oldest_ts)) =
-                (opts.since, page.iter().map(|e| e.exec_date).min())
-            {
-                if oldest_ts < since {
-                    break;
+            for ex in filtered {
+                if seen_ids.insert(ex.id) {
+                    all.push(ex);
                 }
             }
 
+            // bitFlyer `before` is treated as an upper bound on execution id.
+            // Guard against non-decreasing cursors to avoid looping duplicate pages.
+            let oldest_id = page.iter().map(|e| e.id).min();
+            if oldest_id.is_none() || oldest_id == before {
+                break;
+            }
+            before = oldest_id;
+
+            // NOTE: we intentionally do not early-terminate by comparing timestamp ordering
+            // across pages. If execution-id ordering and timestamps are not strictly correlated,
+            // early termination could skip valid records inside the requested time window.
             thread::sleep(Duration::from_millis(150));
         }
 
         Ok(all)
     }
 
-    pub fn fetch_normalize_window(
+    pub fn fetch_and_normalize_window(
         &self,
         opts: &FetchWindowOptions,
     ) -> Result<NormalizeResult, String> {
@@ -256,41 +257,41 @@ pub fn normalize_executions(
         let fee_base = ex.commission.unwrap_or(Decimal::ZERO).abs();
         let fee_jpy = fee_base * ex.price;
         let jpy_total = ex.price * ex.size;
-        let side = ex.side.to_ascii_uppercase();
+        let side_raw = &ex.side;
+        let side_cmp = ex.side.trim();
 
-        match side.as_str() {
-            "BUY" => {
-                let net_qty = ex.size - fee_base;
-                if net_qty <= Decimal::ZERO {
-                    return Err(format!(
-                        "row {}: buy qty must be > 0 after fee, got {}",
-                        row, net_qty
-                    ));
-                }
-                events.push(Event::Acquire {
-                    id: format!("bfexec-{}:acquire", ex.id),
-                    asset: base_asset.to_string(),
-                    qty: net_qty,
-                    jpy_cost: jpy_total + fee_jpy,
-                    ts: ex.exec_date,
-                });
+        if side_cmp.eq_ignore_ascii_case("BUY") {
+            let net_qty = ex.size - fee_base;
+            if net_qty <= Decimal::ZERO {
+                return Err(format!(
+                    "row {}: buy qty must be > 0 after fee, got {}",
+                    row, net_qty
+                ));
             }
-            "SELL" => {
-                events.push(Event::Dispose {
-                    id: format!("bfexec-{}:dispose", ex.id),
-                    asset: base_asset.to_string(),
-                    qty: ex.size,
-                    jpy_proceeds: jpy_total - fee_jpy,
-                    ts: ex.exec_date,
-                });
-            }
-            other => diagnostics.push(NormalizeDiagnostic {
+            events.push(Event::Acquire {
+                id: format!("bfexec-{}:acquire", ex.id),
+                asset: base_asset.clone(),
+                qty: net_qty,
+                jpy_cost: jpy_total + fee_jpy,
+                ts: ex.exec_date,
+            });
+        } else if side_cmp.eq_ignore_ascii_case("SELL") {
+            events.push(Event::Dispose {
+                id: format!("bfexec-{}:dispose", ex.id),
+                asset: base_asset.clone(),
+                qty: ex.size,
+                jpy_proceeds: jpy_total - fee_jpy,
+                ts: ex.exec_date,
+            });
+        } else {
+            diagnostics.push(NormalizeDiagnostic {
                 row,
                 reason: format!(
                     "unsupported side: side='{}', execution_id='{}'",
-                    other, ex.id
+                    sanitize_diagnostic_value(side_raw),
+                    sanitize_diagnostic_value(&ex.id.to_string())
                 ),
-            }),
+            });
         }
     }
 
@@ -316,9 +317,14 @@ pub fn filter_executions_by_time(
         .collect()
 }
 
-pub fn build_executions_path(opts: &FetchOptions) -> String {
+pub fn build_executions_path(opts: &FetchOptions) -> Result<String, String> {
+    let product_code = validate_product_code(&opts.product_code)?;
+    if opts.count == 0 {
+        return Err("count must be > 0".to_string());
+    }
+
     let mut q = vec![
-        format!("product_code={}", opts.product_code),
+        format!("product_code={}", product_code),
         format!("count={}", opts.count),
     ];
 
@@ -329,7 +335,7 @@ pub fn build_executions_path(opts: &FetchOptions) -> String {
         q.push(format!("after={}", v));
     }
 
-    format!("{}?{}", EXECUTIONS_PATH, q.join("&"))
+    Ok(format!("{}?{}", EXECUTIONS_PATH, q.join("&")))
 }
 
 fn build_auth_headers(api_key: &str, timestamp: &str, sign: &str) -> Result<HeaderMap, String> {
@@ -351,7 +357,8 @@ fn build_auth_headers(api_key: &str, timestamp: &str, sign: &str) -> Result<Head
 }
 
 fn split_product(product_code: &str) -> Result<(String, String), String> {
-    let mut parts = product_code.split('_');
+    let normalized = validate_product_code(product_code)?;
+    let mut parts = normalized.split('_');
     let base = parts
         .next()
         .ok_or_else(|| format!("invalid product_code '{}': missing base", product_code))?;
@@ -365,4 +372,57 @@ fn split_product(product_code: &str) -> Result<(String, String), String> {
         base.trim().to_ascii_uppercase(),
         quote.trim().to_ascii_uppercase(),
     ))
+}
+
+fn validate_product_code(product_code: &str) -> Result<String, String> {
+    let code = product_code.trim().to_ascii_uppercase();
+    if code.is_empty() {
+        return Err("product_code must not be empty".to_string());
+    }
+    if !code
+        .chars()
+        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+    {
+        return Err(format!(
+            "invalid product_code '{}': only [A-Z0-9_] is allowed",
+            product_code
+        ));
+    }
+    Ok(code)
+}
+
+fn sanitize_diagnostic_value(s: &str) -> String {
+    const MAX_LEN: usize = 200;
+
+    let mut out = String::with_capacity(s.len().min(MAX_LEN));
+    for c in s.chars() {
+        if out.len() >= MAX_LEN {
+            out.push_str("…");
+            break;
+        }
+        if c.is_control() {
+            out.push('�');
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+fn validate_fetch_window_options(opts: &FetchWindowOptions) -> Result<(), String> {
+    if opts.count_per_page == 0 {
+        return Err("count_per_page must be > 0".to_string());
+    }
+    if opts.max_pages == 0 {
+        return Err("max_pages must be > 0".to_string());
+    }
+    if let (Some(since), Some(until)) = (opts.since, opts.until) {
+        if since > until {
+            return Err(format!(
+                "invalid time window: since ({}) must be <= until ({})",
+                since, until
+            ));
+        }
+    }
+    Ok(())
 }

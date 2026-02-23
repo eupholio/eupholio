@@ -41,7 +41,7 @@ fn run() -> Result<(), String> {
     };
 
     let client = BitflyerApiClient::from_env()?;
-    let normalized = client.fetch_normalize_window(&opts)?;
+    let normalized = client.fetch_and_normalize_window(&opts)?;
 
     println!(
         "normalized: events={} diagnostics={}",
