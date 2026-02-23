@@ -277,3 +277,72 @@ fn bitflyer_api_window_dedupes_and_stops_on_non_decreasing_before() {
     assert!(got.iter().any(|e| e.id == 100));
     assert!(got.iter().any(|e| e.id == 99));
 }
+
+#[test]
+fn bitflyer_api_window_rejects_zero_count_per_page_before_network() {
+    let client = BitflyerApiClient::new(
+        "https://api.bitflyer.com/".to_string(),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let err = client
+        .fetch_executions_window(&FetchWindowOptions {
+            product_code: "BTC_JPY".to_string(),
+            count_per_page: 0,
+            max_pages: 1,
+            since: None,
+            until: None,
+        })
+        .expect_err("count_per_page=0 should fail before network");
+
+    assert!(err.contains("count_per_page must be > 0"));
+}
+
+#[test]
+fn bitflyer_api_window_rejects_zero_max_pages_before_network() {
+    let client = BitflyerApiClient::new(
+        "https://api.bitflyer.com/".to_string(),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let err = client
+        .fetch_executions_window(&FetchWindowOptions {
+            product_code: "BTC_JPY".to_string(),
+            count_per_page: 100,
+            max_pages: 0,
+            since: None,
+            until: None,
+        })
+        .expect_err("max_pages=0 should fail before network");
+
+    assert!(err.contains("max_pages must be > 0"));
+}
+
+#[test]
+fn bitflyer_api_filter_executions_by_time_window_is_inclusive() {
+    let raw = r#"[
+      {"id": 1, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-01T00:00:00Z"},
+      {"id": 2, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-02-01T00:00:00Z"},
+      {"id": 3, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-03-01T00:00:00Z"}
+    ]"#;
+    let executions: Vec<Execution> = serde_json::from_str(raw).unwrap();
+
+    let since = DateTime::parse_from_rfc3339("2026-02-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let until = DateTime::parse_from_rfc3339("2026-02-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    let filtered = filter_executions_by_time(&executions, Some(since), Some(until));
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].id, 2);
+}
