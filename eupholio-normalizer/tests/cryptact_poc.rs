@@ -375,6 +375,66 @@ fn cryptact_normalize_loss_and_reduce() {
     }
 }
 
+#[test]
+fn cryptact_normalize_phase5_lend_recover_borrow_return_defifee() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,LEND,bitFlyer,BTC,0.1,,JPY,0,JPY,
+2026/1/3 12:00:00,RECOVER,bitFlyer,BTC,0.05,,JPY,0,JPY,
+2026/1/4 12:00:00,BORROW,bitFlyer,ETH,1,,JPY,0,JPY,
+2026/1/5 12:00:00,RETURN,bitFlyer,ETH,1,,JPY,0,JPY,
+2026/1/6 12:00:00,DEFIFEE,bitFlyer,BNB,0.01,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.diagnostics.len(), 0);
+    assert_eq!(got.events.len(), 5);
+
+    assert!(matches!(
+        &got.events[0],
+        Event::Transfer {
+            direction: eupholio_core::event::TransferDirection::Out,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &got.events[1],
+        Event::Transfer {
+            direction: eupholio_core::event::TransferDirection::In,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &got.events[2],
+        Event::Transfer {
+            direction: eupholio_core::event::TransferDirection::In,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &got.events[3],
+        Event::Transfer {
+            direction: eupholio_core::event::TransferDirection::Out,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &got.events[4],
+        Event::Dispose { jpy_proceeds, .. } if *jpy_proceeds == d("0")
+    ));
+}
+
+#[test]
+fn cryptact_normalize_phase5_cash_to_diagnostic() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,CASH,manual,JPY,0,0,JPY,2000,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 0);
+    assert_eq!(got.diagnostics.len(), 1);
+    assert!(got.diagnostics[0].reason.contains("CASH is not supported"));
+}
+
 fn d(v: &str) -> Decimal {
     Decimal::from_str(v).expect("valid decimal")
 }
