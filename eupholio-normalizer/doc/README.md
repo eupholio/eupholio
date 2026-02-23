@@ -18,3 +18,9 @@ Documentation for source-specific normalization into `eupholio-core::event::Even
   - Scoped plan for Deposit/Withdrawal (JPY) transfer mapping in Coincheck
 - [22-normalizer-bitflyer-phase1-trade-mapping.md](./22-normalizer-bitflyer-phase1-trade-mapping.md)
   - Minimal BitFlyer phase-1 mapping for buy/sell trade rows
+- [23-bitflyer-api-poc-spec.md](./23-bitflyer-api-poc-spec.md)
+  - BitFlyer API PoC scope and behavior notes
+- [24-api-crate-split-architecture.md](./24-api-crate-split-architecture.md)
+  - API crate split architecture and responsibilities
+- [25-ai-normalizer-adapter-playbook.md](./25-ai-normalizer-adapter-playbook.md)
+  - Required spec/fixture package for high-confidence AI adapter implementation
