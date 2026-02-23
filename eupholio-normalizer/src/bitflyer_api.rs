@@ -401,10 +401,12 @@ fn validate_product_code(product_code: &str) -> Result<String, String> {
 }
 
 fn parse_retry_after_secs(headers: &HeaderMap) -> Option<u64> {
+    const MAX_RETRY_AFTER_SECS: u64 = 300;
+
     let raw = headers.get(RETRY_AFTER)?.to_str().ok()?.trim();
 
     if let Ok(secs) = raw.parse::<u64>() {
-        return Some(secs);
+        return Some(secs.min(MAX_RETRY_AFTER_SECS));
     }
 
     chrono::DateTime::parse_from_rfc2822(raw)
@@ -412,7 +414,7 @@ fn parse_retry_after_secs(headers: &HeaderMap) -> Option<u64> {
         .map(|dt| dt.with_timezone(&Utc))
         .and_then(|retry_at| {
             let delta = retry_at.signed_duration_since(Utc::now()).num_seconds();
-            (delta > 0).then_some(delta as u64)
+            (delta > 0).then_some((delta as u64).min(MAX_RETRY_AFTER_SECS))
         })
 }
 
