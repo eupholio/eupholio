@@ -488,8 +488,8 @@ fn cryptact_normalize_phase5_nonzero_fee_errors() {
             action
         );
 
-        let err = normalize_custom_csv(&csv)
-            .expect_err(&format!("non-zero {} fee should fail", action));
+        let err =
+            normalize_custom_csv(&csv).expect_err(&format!("non-zero {} fee should fail", action));
         assert!(
             err.contains(&format!("fee must be 0 for {} in phase-5", action)),
             "unexpected error for {action}: {err}"
