@@ -5,6 +5,7 @@ use std::sync::{
     Arc,
 };
 use std::thread;
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use eupholio_core::event::Event;
@@ -404,6 +405,74 @@ fn bitflyer_api_fetch_page_retries_on_5xx_then_succeeds() {
     assert_eq!(calls.load(Ordering::SeqCst), 3, "expected 3 attempts");
     assert_eq!(page.len(), 1);
     assert_eq!(page[0].id, 1);
+}
+
+#[test]
+fn bitflyer_api_fetch_page_honors_retry_after_on_429() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_bg = Arc::clone(&calls);
+
+    let server = thread::spawn(move || {
+        for stream in listener.incoming().take(2) {
+            let mut stream = stream.expect("incoming stream");
+            let idx = calls_bg.fetch_add(1, Ordering::SeqCst);
+
+            let mut buf = [0_u8; 2048];
+            let _ = stream.read(&mut buf);
+
+            let (status, extra_headers, body) = if idx == 0 {
+                ("429 Too Many Requests", "Retry-After: 1\r\n", "{}")
+            } else {
+                (
+                    "200 OK",
+                    "",
+                    r#"[{"id": 10, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-01T00:00:00Z"}]"#,
+                )
+            };
+
+            let resp = format!(
+                "HTTP/1.1 {}\r\n{}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                status,
+                extra_headers,
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).expect("write response");
+        }
+    });
+
+    let client = BitflyerApiClient::new(
+        format!("http://{}", addr),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let started = Instant::now();
+    let page = client
+        .fetch_executions_page(&FetchOptions {
+            product_code: "BTC_JPY".to_string(),
+            count: 10,
+            before: None,
+            after: None,
+        })
+        .expect("should succeed after retry");
+    let elapsed = started.elapsed();
+
+    server.join().expect("server thread join");
+
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "expected 2 attempts");
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0].id, 10);
+    assert!(
+        elapsed.as_millis() >= 800,
+        "expected retry delay close to Retry-After=1s, got {:?}",
+        elapsed
+    );
 }
 
 #[test]
