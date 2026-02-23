@@ -367,9 +367,7 @@ fn cryptact_normalize_loss_and_reduce() {
     }
 
     match &got.events[1] {
-        Event::Transfer {
-            qty, direction, ..
-        } => {
+        Event::Transfer { qty, direction, .. } => {
             assert_eq!(*qty, d("1"));
             assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
         }
