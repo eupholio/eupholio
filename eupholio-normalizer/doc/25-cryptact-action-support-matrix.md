@@ -1,4 +1,4 @@
-# Cryptact custom CSV action support matrix (current)
+# 25. Cryptact custom CSV action support matrix (current)
 
 This document summarizes which `Action` values are currently mapped by
 `eupholio-normalizer/src/cryptact.rs`, and what constraints apply.
