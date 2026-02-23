@@ -149,16 +149,18 @@ impl BitflyerApiClient {
 
             let retryable = status.as_u16() == 429 || status.is_server_error();
             if retryable && attempt < max_attempts {
-                let retry_after = parse_retry_after_secs(&resp.headers().clone());
+                let retry_after = parse_retry_after_secs(resp.headers());
                 let _ = resp.text();
 
-                let sleep_for = retry_after
-                    .map(Duration::from_secs)
-                    .filter(|d| *d > Duration::ZERO)
-                    .unwrap_or(backoff);
+                let (sleep_for, used_backoff) = retry_after
+                    .filter(|secs| *secs > 0)
+                    .map(|secs| (Duration::from_secs(secs), false))
+                    .unwrap_or((backoff, true));
 
                 thread::sleep(sleep_for);
-                backoff *= 2;
+                if used_backoff {
+                    backoff *= 2;
+                }
                 continue;
             }
 

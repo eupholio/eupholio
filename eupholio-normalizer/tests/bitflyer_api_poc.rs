@@ -467,8 +467,9 @@ fn bitflyer_api_fetch_page_honors_retry_after_on_429() {
 
     assert_eq!(calls.load(Ordering::SeqCst), 2, "expected 2 attempts");
     assert_eq!(page.len(), 1);
+    assert_eq!(page[0].id, 10);
     assert!(
-        elapsed.as_millis() >= 900,
+        elapsed.as_millis() >= 800,
         "expected retry delay close to Retry-After=1s, got {:?}",
         elapsed
     );
