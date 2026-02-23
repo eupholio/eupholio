@@ -6,6 +6,22 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 const TS_LAYOUT: &str = "%Y/%-m/%-d %H:%M:%S";
+const REQUIRED_HEADERS: [&str; 10] = [
+    "Timestamp",
+    "Action",
+    "Source",
+    "Base",
+    "Volume",
+    "Price",
+    "Counter",
+    "Fee",
+    "FeeCcy",
+    "Comment",
+];
+const SUPPORTED_ACTIONS: [&str; 17] = [
+    "BUY", "SELL", "PAY", "MINING", "SENDFEE", "TIP", "REDUCE", "BONUS", "LENDING",
+    "STAKING", "LEND", "RECOVER", "BORROW", "RETURN", "LOSS", "CASH", "DEFIFEE",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NormalizeDiagnostic {
@@ -34,6 +50,7 @@ pub fn normalize_custom_csv(raw: &str) -> Result<NormalizeResult, String> {
         .headers()
         .map_err(|e| format!("invalid csv header: {}", e))?
         .clone();
+    validate_headers(&headers)?;
     let index = build_header_index(&headers);
 
     let mut events = Vec::new();
@@ -135,10 +152,29 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
             }))
         }
         _ => Ok(RowOutcome::Unsupported(format!(
-            "unsupported action: action='{}'",
-            action
+            "unsupported action: action='{}' (known actions: {})",
+            action,
+            SUPPORTED_ACTIONS.join(",")
         ))),
     }
+}
+
+fn validate_headers(headers: &StringRecord) -> Result<(), String> {
+    let found: Vec<&str> = headers.iter().map(str::trim).collect();
+
+    for expected in REQUIRED_HEADERS {
+        if !found.iter().any(|h| h.eq_ignore_ascii_case(expected)) {
+            return Err(format!("missing required header {}", expected));
+        }
+    }
+
+    for h in &found {
+        if !REQUIRED_HEADERS.iter().any(|e| h.eq_ignore_ascii_case(e)) {
+            return Err(format!("unknown header {}", h));
+        }
+    }
+
+    Ok(())
 }
 
 fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {

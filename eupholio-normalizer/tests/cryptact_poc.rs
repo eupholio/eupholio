@@ -43,6 +43,16 @@ fn cryptact_normalize_buy_sell_jpy() {
 }
 
 #[test]
+fn cryptact_normalize_rejects_missing_required_header() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,Comment
+2026/1/2 12:00:00,BUY,bitFlyer,BTC,0.1,6000000,JPY,120,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("missing FeeCcy should fail");
+    assert!(err.contains("missing required header FeeCcy"));
+}
+
+#[test]
 fn cryptact_normalize_unsupported_action_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
 2026/1/2 12:00:00,MINING,bitFlyer,BTC,0.1,0,JPY,0,JPY,
