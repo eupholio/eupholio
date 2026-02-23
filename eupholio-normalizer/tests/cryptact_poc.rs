@@ -277,7 +277,9 @@ fn cryptact_normalize_tip_to_dispose() {
     let got = normalize_custom_csv(csv).expect("should parse");
     assert_eq!(got.events.len(), 1);
     match &got.events[0] {
-        Event::Dispose { qty, jpy_proceeds, .. } => {
+        Event::Dispose {
+            qty, jpy_proceeds, ..
+        } => {
             assert_eq!(*qty, d("0.0001"));
             assert_eq!(*jpy_proceeds, d("600"));
         }
