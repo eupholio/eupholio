@@ -131,7 +131,7 @@ new-adapter/
 - [ ] Every supported action has at least 1 happy-path fixture
 - [ ] Every supported action has at least 1 invalid-path fixture
 - [ ] Unknown action test exists
-- [ ] Non-supported currency/path test exists
+- [ ] Unsupported currency/path test exists
 - [ ] Date parse failure test exists
 - [ ] Decimal parse failure test exists
 - [ ] Id uniqueness/row identity test exists
