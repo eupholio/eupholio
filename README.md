@@ -87,6 +87,39 @@ mkdir -p history
 ./bin/query balance --year 2020
 ```
 
+## Developer utilities (PR review hygiene)
+
+For repository maintenance, there are helper scripts under `scripts/`.
+
+### `scripts/pr_review_threads.sh`
+
+Audit unresolved review threads on PRs.
+
+```bash
+# Actionable unresolved threads on open PRs (default)
+scripts/pr_review_threads.sh --state open
+
+# Historical sweep (include outdated unresolved threads)
+scripts/pr_review_threads.sh --state merged --include-outdated --limit 20
+```
+
+Options:
+- `--repo <owner/name>`: target repository (default: `eupholio/eupholio`)
+- `--state <open|merged|closed|all>`: PR state scope
+- `--limit <n>`: number of PRs to scan per state
+- `--include-outdated`: include unresolved outdated threads
+- `--max-thread-pages <n>`: pagination cap per PR when fetching review threads
+
+### `scripts/pr_watchdog.sh`
+
+Periodic watchdog for PR health (e.g., unresolved review threads / failing checks).
+
+```bash
+scripts/pr_watchdog.sh
+```
+
+Use this together with `pr_review_threads.sh` for quick triage + periodic monitoring.
+
 ## TODO
 
 - Ethereum wallet support
