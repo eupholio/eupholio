@@ -548,8 +548,85 @@ fn bitflyer_api_fetch_page_honors_retry_after_http_date_on_429() {
     assert_eq!(page[0].id, 11);
     let elapsed_ms = elapsed.as_millis();
     assert!(
-        (500..=2500).contains(&elapsed_ms),
+        (1500..=5000).contains(&elapsed_ms),
         "expected retry delay from HTTP-date Retry-After, got {:?}",
+        elapsed
+    );
+}
+
+#[test]
+fn bitflyer_api_fetch_page_falls_back_when_retry_after_http_date_is_past() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_bg = Arc::clone(&calls);
+
+    let retry_at = (Utc::now() - ChronoDuration::seconds(10))
+        .format("%a, %d %b %Y %H:%M:%S GMT")
+        .to_string();
+
+    let server = thread::spawn(move || {
+        for stream in listener.incoming().take(2) {
+            let mut stream = stream.expect("incoming stream");
+            let idx = calls_bg.fetch_add(1, Ordering::SeqCst);
+
+            let mut buf = [0_u8; 2048];
+            let _ = stream.read(&mut buf);
+
+            let (status, extra_headers, body) = if idx == 0 {
+                (
+                    "429 Too Many Requests",
+                    format!("Retry-After: {}\r\n", retry_at),
+                    "{}".to_string(),
+                )
+            } else {
+                (
+                    "200 OK",
+                    "".to_string(),
+                    r#"[{"id": 13, "side": "BUY", "price": "100", "size": "1", "exec_date": "2026-01-01T00:00:00Z"}]"#
+                        .to_string(),
+                )
+            };
+
+            let resp = format!(
+                "HTTP/1.1 {}\r\n{}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                status,
+                extra_headers,
+                body.len(),
+                body
+            );
+            stream.write_all(resp.as_bytes()).expect("write response");
+        }
+    });
+
+    let client = BitflyerApiClient::new(
+        format!("http://{}", addr),
+        ApiCredentials {
+            api_key: "k".to_string(),
+            api_secret: "s".to_string(),
+        },
+    )
+    .expect("client should construct");
+
+    let started = Instant::now();
+    let page = client
+        .fetch_executions_page(&FetchOptions {
+            product_code: "BTC_JPY".to_string(),
+            count: 10,
+            before: None,
+            after: None,
+        })
+        .expect("should succeed after fallback retry");
+    let elapsed = started.elapsed();
+
+    server.join().expect("server thread join");
+
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "expected 2 attempts");
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0].id, 13);
+    assert!(
+        elapsed.as_millis() >= 200,
+        "expected fallback backoff delay when Retry-After date is in the past, got {:?}",
         elapsed
     );
 }

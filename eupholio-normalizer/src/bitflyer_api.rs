@@ -453,3 +453,32 @@ fn validate_fetch_window_options(opts: &FetchWindowOptions) -> Result<(), String
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_retry_after_secs;
+    use chrono::{Duration as ChronoDuration, Utc};
+    use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER};
+
+    #[test]
+    fn parse_retry_after_secs_caps_large_delta_seconds() {
+        let mut headers = HeaderMap::new();
+        headers.insert(RETRY_AFTER, HeaderValue::from_static("9999"));
+
+        assert_eq!(parse_retry_after_secs(&headers), Some(300));
+    }
+
+    #[test]
+    fn parse_retry_after_secs_caps_large_http_date_delta() {
+        let mut headers = HeaderMap::new();
+        let future = (Utc::now() + ChronoDuration::seconds(600))
+            .format("%a, %d %b %Y %H:%M:%S GMT")
+            .to_string();
+        headers.insert(
+            RETRY_AFTER,
+            HeaderValue::from_str(&future).expect("valid retry-after"),
+        );
+
+        assert_eq!(parse_retry_after_secs(&headers), Some(300));
+    }
+}
