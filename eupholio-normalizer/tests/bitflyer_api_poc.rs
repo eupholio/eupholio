@@ -1,6 +1,9 @@
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::thread;
 
 use chrono::{DateTime, Utc};
@@ -236,9 +239,7 @@ fn bitflyer_api_window_dedupes_and_stops_on_non_decreasing_before() {
                 body.len(),
                 body
             );
-            stream
-                .write_all(resp.as_bytes())
-                .expect("write response");
+            stream.write_all(resp.as_bytes()).expect("write response");
         }
     });
 
@@ -263,8 +264,16 @@ fn bitflyer_api_window_dedupes_and_stops_on_non_decreasing_before() {
 
     server.join().expect("server thread join");
 
-    assert_eq!(calls.load(Ordering::SeqCst), 2, "expected exactly 2 page fetches");
-    assert_eq!(got.len(), 2, "duplicate execution id should be de-duplicated");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "expected exactly 2 page fetches"
+    );
+    assert_eq!(
+        got.len(),
+        2,
+        "duplicate execution id should be de-duplicated"
+    );
     assert!(got.iter().any(|e| e.id == 100));
     assert!(got.iter().any(|e| e.id == 99));
 }
