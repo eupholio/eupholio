@@ -22,7 +22,6 @@ package httputil
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -42,13 +41,7 @@ func HttpGet(ctx context.Context, url string, timeout time.Duration) (content []
 	defer cancel_func()
 	request = request.WithContext(ctx)
 
-	// TODO
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{
-		Transport: tr,
-	}
+	client := &http.Client{}
 
 	response, err := client.Do(request)
 	if err != nil {
