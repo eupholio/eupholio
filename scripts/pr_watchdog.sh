@@ -10,7 +10,7 @@ REVIEW_AUDIT_SCRIPT="${REVIEW_AUDIT_SCRIPT:-$REPO_ROOT/scripts/pr_review_threads
 REVIEW_AUDIT_LIMIT="${REVIEW_AUDIT_LIMIT:-20}"
 REVIEW_AUDIT_MAX_LINES="${REVIEW_AUDIT_MAX_LINES:-40}"
 
-if ! [[ "$REPO" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
+if ! [[ "$REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
   echo "Invalid REPO format: '$REPO'. Expected 'owner/name'." >&2
   exit 1
 fi
