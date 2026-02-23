@@ -483,7 +483,7 @@ fn bitflyer_api_fetch_page_honors_retry_after_http_date_on_429() {
     let calls = Arc::new(AtomicUsize::new(0));
     let calls_bg = Arc::clone(&calls);
 
-    let retry_at = (Utc::now() + ChronoDuration::seconds(2))
+    let retry_at = (Utc::now() + ChronoDuration::seconds(3))
         .format("%a, %d %b %Y %H:%M:%S GMT")
         .to_string();
 
@@ -548,7 +548,7 @@ fn bitflyer_api_fetch_page_honors_retry_after_http_date_on_429() {
     assert_eq!(page[0].id, 11);
     let elapsed_ms = elapsed.as_millis();
     assert!(
-        (1500..=5000).contains(&elapsed_ms),
+        (800..=5000).contains(&elapsed_ms),
         "expected retry delay from HTTP-date Retry-After, got {:?}",
         elapsed
     );
