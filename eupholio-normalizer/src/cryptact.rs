@@ -150,10 +150,7 @@ fn map_row(
                 )));
             }
             if fee != Decimal::ZERO {
-                return Err(format!(
-                    "fee must be 0 for MINING in phase-2, got {}",
-                    fee
-                ));
+                return Err(format!("fee must be 0 for MINING in phase-2, got {}", fee));
             }
 
             let jpy_value = price_opt.map(|p| p * qty).unwrap_or(Decimal::ZERO);
