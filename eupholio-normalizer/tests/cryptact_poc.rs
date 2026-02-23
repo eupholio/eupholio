@@ -128,7 +128,7 @@ fn cryptact_normalize_ids_are_unique_per_row() {
 #[test]
 fn cryptact_normalize_unsupported_action_to_diagnostic() {
     let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
-2026/1/2 12:00:00,TIP,bitFlyer,BTC,0.1,0,JPY,0,JPY,
+2026/1/2 12:00:00,RETURN,bitFlyer,BTC,0.1,0,JPY,0,JPY,
 "#;
 
     let got = normalize_custom_csv(csv).expect("should parse");
@@ -249,6 +249,129 @@ fn cryptact_normalize_sendfee_to_transfer_out() {
             assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
         }
         other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_bonus_lending_staking_to_income() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,BONUS,bitFlyer,BTC,0.01,,JPY,0,JPY,
+2026/1/3 12:00:00,LENDING,bitFlyer,ETH,1,1000,JPY,0,JPY,
+2026/1/4 12:00:00,STAKING,bitFlyer,SOL,2,500,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.diagnostics.len(), 0);
+    assert_eq!(got.events.len(), 3);
+
+    match &got.events[0] {
+        Event::Income {
+            asset,
+            qty,
+            jpy_value,
+            ..
+        } => {
+            assert_eq!(asset, "BTC");
+            assert_eq!(*qty, d("0.01"));
+            assert_eq!(*jpy_value, d("0"));
+        }
+        other => panic!("unexpected event[0]: {other:?}"),
+    }
+    match &got.events[1] {
+        Event::Income {
+            asset,
+            qty,
+            jpy_value,
+            ..
+        } => {
+            assert_eq!(asset, "ETH");
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*jpy_value, d("1000"));
+        }
+        other => panic!("unexpected event[1]: {other:?}"),
+    }
+    match &got.events[2] {
+        Event::Income {
+            asset,
+            qty,
+            jpy_value,
+            ..
+        } => {
+            assert_eq!(asset, "SOL");
+            assert_eq!(*qty, d("2"));
+            assert_eq!(*jpy_value, d("1000"));
+        }
+        other => panic!("unexpected event[2]: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_tip_to_dispose() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,TIP,bitFlyer,BTC,0.0001,6000000,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 1);
+    match &got.events[0] {
+        Event::Dispose {
+            qty, jpy_proceeds, ..
+        } => {
+            assert_eq!(*qty, d("0.0001"));
+            assert_eq!(*jpy_proceeds, d("600"));
+        }
+        other => panic!("unexpected event: {other:?}"),
+    }
+}
+
+#[test]
+fn cryptact_normalize_phase4_non_jpy_fee_ccy_to_diagnostics() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,BONUS,bitFlyer,BTC,0.01,,JPY,0,BTC,
+2026/1/3 12:00:00,TIP,bitFlyer,ETH,0.1,1000,JPY,0,ETH,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 0);
+    assert_eq!(got.diagnostics.len(), 2);
+}
+
+#[test]
+fn cryptact_normalize_phase4_nonzero_fee_errors() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,LOSS,bitFlyer,BTC,0.1,,JPY,1,JPY,
+"#;
+
+    let err = normalize_custom_csv(csv).expect_err("non-zero phase-4 fee should fail");
+    assert!(err.contains("fee must be 0 for LOSS in phase-4"));
+}
+
+#[test]
+fn cryptact_normalize_loss_and_reduce() {
+    let csv = r#"Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment
+2026/1/2 12:00:00,LOSS,bitFlyer,BTC,0.1,,JPY,0,JPY,
+2026/1/3 12:00:00,REDUCE,bitFlyer,ETH,1,,JPY,0,JPY,
+"#;
+
+    let got = normalize_custom_csv(csv).expect("should parse");
+    assert_eq!(got.events.len(), 2);
+
+    match &got.events[0] {
+        Event::Dispose {
+            qty, jpy_proceeds, ..
+        } => {
+            assert_eq!(*qty, d("0.1"));
+            assert_eq!(*jpy_proceeds, d("0"));
+        }
+        other => panic!("unexpected loss event: {other:?}"),
+    }
+
+    match &got.events[1] {
+        Event::Transfer { qty, direction, .. } => {
+            assert_eq!(*qty, d("1"));
+            assert_eq!(*direction, eupholio_core::event::TransferDirection::Out);
+        }
+        other => panic!("unexpected reduce event: {other:?}"),
     }
 }
 
