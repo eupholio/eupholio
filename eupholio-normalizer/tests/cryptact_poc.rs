@@ -457,6 +457,30 @@ fn cryptact_normalize_phase5_lend_recover_borrow_return_defifee() {
 }
 
 #[test]
+fn cryptact_normalize_phase5_non_jpy_fee_ccy_to_diagnostics() {
+    for action in ["LEND", "RECOVER", "BORROW", "RETURN", "DEFIFEE"] {
+        let csv = format!(
+            "Timestamp,Action,Source,Base,Volume,Price,Counter,Fee,FeeCcy,Comment\n2026/1/2 12:00:00,{},bitFlyer,BTC,0.1,,JPY,0,BTC,\n",
+            action
+        );
+
+        let got = normalize_custom_csv(&csv).expect("should parse");
+        assert_eq!(
+            got.events.len(),
+            0,
+            "non-JPY fee_ccy for {} should not produce events",
+            action
+        );
+        assert_eq!(
+            got.diagnostics.len(),
+            1,
+            "non-JPY fee_ccy for {} should produce a diagnostic",
+            action
+        );
+    }
+}
+
+#[test]
 fn cryptact_normalize_phase5_nonzero_fee_errors() {
     for action in ["LEND", "RECOVER", "BORROW", "RETURN", "DEFIFEE"] {
         let csv = format!(
