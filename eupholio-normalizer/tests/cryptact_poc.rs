@@ -1,6 +1,7 @@
 use eupholio_core::event::Event;
 use eupholio_normalizer::cryptact::normalize_custom_csv;
-use rust_decimal_macros::dec;
+use rust_decimal::Decimal;
+use std::str::FromStr;
 
 #[test]
 fn cryptact_normalize_buy_sell_jpy() {
@@ -21,8 +22,8 @@ fn cryptact_normalize_buy_sell_jpy() {
             ..
         } => {
             assert_eq!(asset, "BTC");
-            assert_eq!(*qty, dec!(0.1));
-            assert_eq!(*jpy_cost, dec!(600120));
+            assert_eq!(*qty, d("0.1"));
+            assert_eq!(*jpy_cost, d("600120"));
         }
         other => panic!("unexpected event: {other:?}"),
     }
@@ -35,8 +36,8 @@ fn cryptact_normalize_buy_sell_jpy() {
             ..
         } => {
             assert_eq!(asset, "BTC");
-            assert_eq!(*qty, dec!(0.05));
-            assert_eq!(*jpy_proceeds, dec!(309900));
+            assert_eq!(*qty, d("0.05"));
+            assert_eq!(*jpy_proceeds, d("309900"));
         }
         other => panic!("unexpected event: {other:?}"),
     }
@@ -62,4 +63,8 @@ fn cryptact_normalize_unsupported_action_to_diagnostic() {
     assert_eq!(got.events.len(), 0);
     assert_eq!(got.diagnostics.len(), 1);
     assert!(got.diagnostics[0].reason.contains("unsupported action"));
+}
+
+fn d(v: &str) -> Decimal {
+    Decimal::from_str(v).expect("valid decimal")
 }

@@ -19,8 +19,8 @@ const REQUIRED_HEADERS: [&str; 10] = [
     "Comment",
 ];
 const SUPPORTED_ACTIONS: [&str; 17] = [
-    "BUY", "SELL", "PAY", "MINING", "SENDFEE", "TIP", "REDUCE", "BONUS", "LENDING",
-    "STAKING", "LEND", "RECOVER", "BORROW", "RETURN", "LOSS", "CASH", "DEFIFEE",
+    "BUY", "SELL", "PAY", "MINING", "SENDFEE", "TIP", "REDUCE", "BONUS", "LENDING", "STAKING",
+    "LEND", "RECOVER", "BORROW", "RETURN", "LOSS", "CASH", "DEFIFEE",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
