@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone, Utc};
 use csv::StringRecord;
 use eupholio_core::event::Event;
 use rust_decimal::Decimal;
@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 const TS_LAYOUT: &str = "%Y/%-m/%-d %H:%M:%S";
+const JST_OFFSET_SECS: i32 = 9 * 60 * 60;
+const MAX_DIAGNOSTIC_VALUE_LEN: usize = 120;
 const REQUIRED_HEADERS: [&str; 10] = [
     "Timestamp",
     "Action",
@@ -63,7 +65,7 @@ pub fn normalize_custom_csv(raw: &str) -> Result<NormalizeResult, String> {
             continue;
         }
 
-        match map_row(&index, &record) {
+        match map_row(&index, &record, row) {
             Ok(RowOutcome::Event(e)) => events.push(e),
             Ok(RowOutcome::Unsupported(reason)) => {
                 diagnostics.push(NormalizeDiagnostic { row, reason })
@@ -78,14 +80,20 @@ pub fn normalize_custom_csv(raw: &str) -> Result<NormalizeResult, String> {
     })
 }
 
-fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutcome, String> {
-    let ts = parse_datetime(get(index, row, "Timestamp")?)?;
+fn map_row(
+    index: &HashMap<String, usize>,
+    row: &StringRecord,
+    row_num: usize,
+) -> Result<RowOutcome, String> {
+    let ts_raw = get(index, row, "Timestamp")?;
+    let ts = parse_datetime(ts_raw)?;
     let action = get(index, row, "Action")?.to_ascii_uppercase();
     let id_base = build_id_base(
-        get(index, row, "Timestamp")?,
+        ts_raw,
         get(index, row, "Source")?,
         get(index, row, "Base")?,
         get(index, row, "Counter")?,
+        row_num,
     );
 
     let base_asset = get(index, row, "Base")?.to_ascii_uppercase();
@@ -95,65 +103,88 @@ fn map_row(index: &HashMap<String, usize>, row: &StringRecord) -> Result<RowOutc
     }
 
     let counter = get(index, row, "Counter")?.to_ascii_uppercase();
-    let price = parse_optional_decimal(get(index, row, "Price")?)?.unwrap_or(Decimal::ZERO);
+    let price_raw = get(index, row, "Price")?;
+    let price_opt = parse_optional_decimal(price_raw)?;
     let fee = parse_optional_decimal(get(index, row, "Fee")?)?.unwrap_or(Decimal::ZERO);
+    if fee < Decimal::ZERO {
+        return Err(format!("fee must be >= 0, got {}", fee));
+    }
     let fee_ccy = get(index, row, "FeeCcy")?.to_ascii_uppercase();
 
     if counter != "JPY" {
         return Ok(RowOutcome::Unsupported(format!(
             "unsupported counter currency: counter='{}', action='{}'",
-            counter, action
+            sanitize_diagnostic_value(&counter),
+            sanitize_diagnostic_value(&action)
         )));
     }
 
     match action.as_str() {
         "BUY" => {
+            let price = required_positive_price(price_opt, &action)?;
             if fee_ccy != counter && fee_ccy != base_asset {
                 return Ok(RowOutcome::Unsupported(format!(
                     "unsupported BUY fee currency: fee_ccy='{}', base='{}', counter='{}'",
-                    fee_ccy, base_asset, counter
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&base_asset),
+                    sanitize_diagnostic_value(&counter)
                 )));
             }
 
-            let jpy_cost = if fee_ccy == counter {
-                (price * qty) + fee
+            let (acquired_qty, jpy_cost) = if fee_ccy == counter {
+                (qty, (price * qty) + fee)
             } else {
-                price * (qty + fee)
+                let net_qty = qty - fee;
+                if net_qty <= Decimal::ZERO {
+                    return Err(format!(
+                        "net volume after base-asset fee must be > 0, got {}",
+                        net_qty
+                    ));
+                }
+                (net_qty, price * qty)
             };
 
             Ok(RowOutcome::Event(Event::Acquire {
                 id: format!("{}:acquire", id_base),
                 asset: base_asset,
-                qty,
+                qty: acquired_qty,
                 jpy_cost,
                 ts,
             }))
         }
         "SELL" => {
+            let price = required_positive_price(price_opt, &action)?;
             if fee_ccy != counter && fee_ccy != base_asset {
                 return Ok(RowOutcome::Unsupported(format!(
                     "unsupported SELL fee currency: fee_ccy='{}', base='{}', counter='{}'",
-                    fee_ccy, base_asset, counter
+                    sanitize_diagnostic_value(&fee_ccy),
+                    sanitize_diagnostic_value(&base_asset),
+                    sanitize_diagnostic_value(&counter)
                 )));
             }
 
             let jpy_proceeds = if fee_ccy == counter {
                 (price * qty) - fee
             } else {
-                price * (qty - fee)
+                price * qty
+            };
+            let disposed_qty = if fee_ccy == base_asset {
+                qty + fee
+            } else {
+                qty
             };
 
             Ok(RowOutcome::Event(Event::Dispose {
                 id: format!("{}:dispose", id_base),
                 asset: base_asset,
-                qty,
+                qty: disposed_qty,
                 jpy_proceeds,
                 ts,
             }))
         }
         _ => Ok(RowOutcome::Unsupported(format!(
             "unsupported action: action='{}' (known actions: {})",
-            action,
+            sanitize_diagnostic_value(&action),
             SUPPORTED_ACTIONS.join(",")
         ))),
     }
@@ -181,7 +212,7 @@ fn build_header_index(headers: &StringRecord) -> HashMap<String, usize> {
     headers
         .iter()
         .enumerate()
-        .map(|(i, col)| (col.to_string(), i))
+        .map(|(i, col)| (normalize_header(col), i))
         .collect()
 }
 
@@ -191,11 +222,23 @@ fn get<'a>(
     key: &str,
 ) -> Result<&'a str, String> {
     let i = *index
-        .get(key)
+        .get(&normalize_header(key))
         .ok_or_else(|| format!("missing required header {}", key))?;
     row.get(i)
         .map(str::trim)
         .ok_or_else(|| format!("missing required field {}", key))
+}
+
+fn normalize_header(s: &str) -> String {
+    s.trim().to_ascii_lowercase()
+}
+
+fn required_positive_price(price_opt: Option<Decimal>, action: &str) -> Result<Decimal, String> {
+    let price = price_opt.ok_or_else(|| format!("price must be provided for {}", action))?;
+    if price <= Decimal::ZERO {
+        return Err(format!("price must be > 0 for {}, got {}", action, price));
+    }
+    Ok(price)
 }
 
 fn parse_decimal(s: &str) -> Result<Decimal, String> {
@@ -214,15 +257,37 @@ fn parse_optional_decimal(s: &str) -> Result<Option<Decimal>, String> {
 fn parse_datetime(s: &str) -> Result<DateTime<Utc>, String> {
     let dt = NaiveDateTime::parse_from_str(s, TS_LAYOUT)
         .map_err(|e| format!("invalid datetime '{}': {}", s, e))?;
-    Ok(DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+    let jst = FixedOffset::east_opt(JST_OFFSET_SECS).ok_or("invalid JST offset")?;
+    let local = jst
+        .from_local_datetime(&dt)
+        .single()
+        .ok_or_else(|| format!("ambiguous datetime '{}' in JST", s))?;
+    Ok(local.with_timezone(&Utc))
 }
 
-fn build_id_base(ts: &str, source: &str, base: &str, counter: &str) -> String {
+fn build_id_base(ts: &str, source: &str, base: &str, counter: &str, row_num: usize) -> String {
     format!(
-        "{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}",
         ts.trim(),
         source.trim(),
         base.trim().to_ascii_uppercase(),
-        counter.trim().to_ascii_uppercase()
+        counter.trim().to_ascii_uppercase(),
+        row_num
     )
+}
+
+fn sanitize_diagnostic_value(s: &str) -> String {
+    let mut out = String::new();
+    for c in s.chars() {
+        if out.len() >= MAX_DIAGNOSTIC_VALUE_LEN {
+            out.push('…');
+            break;
+        }
+        if c.is_control() {
+            out.push('�');
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
